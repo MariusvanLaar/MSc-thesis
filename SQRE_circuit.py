@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 class Qubits(object):
     def __init__(self, n):
         self.n = n
-        self.decomp_states = [[np.identity(2) for N in range(n)]]
+        self.decomp_states = [[np.array([[1,0],[0,0]]) for N in range(n)]]
         self.derivatives = []
         
-    def R_x(self, Thetas, free=True):
+    def Rx(self, Thetas, free=True):
         i = 0+1j
         def rx(angle, comp_der):
             if not comp_der:
@@ -30,7 +30,7 @@ class Qubits(object):
         
         self.decomp_states = new_decomp_states
         
-    def R_z(self, Thetas, free=True):
+    def Rz(self, Thetas, free=True):
         i = 0+1j
         def rz(angle, comp_der):
             if not comp_der:
@@ -88,52 +88,52 @@ class Qubits(object):
     
 def Circuit(n, x, Thetas, take_derivative=True):
     qubits = Qubits(n)
-    qubits.R_x(x[:n], free=False)
-    #qubits.R_z(x[n:2*n], free=False)
+    qubits.Rx(x[:n], free=False)
+    #qubits.Rz(x[n:2*n], free=False)
     #qubits.Entangle([(0,1)])
     for l in range(2):
-        qubits.R_x(Thetas[l*n:(l+1)*n], free=take_derivative)
-        qubits.R_z(Thetas[(l+1)*n:2*(l+1)*n], free=take_derivative)
+        qubits.Rx(Thetas[l*n:(l+1)*n], free=take_derivative)
+        qubits.Rz(Thetas[(l+1)*n:2*(l+1)*n], free=take_derivative)
     qubits.Entangle([(0,1)])
     for l in range(2,4):
-        qubits.R_x(Thetas[l*n:(l+1)*n], free=take_derivative)
-        qubits.R_z(Thetas[(l+1)*n:2*(l+1)*n], free=take_derivative)
+        qubits.Rx(Thetas[l*n:(l+1)*n], free=take_derivative)
+        qubits.Rz(Thetas[(l+1)*n:2*(l+1)*n], free=take_derivative)
     
     return qubits
 
 def Cost(E, y):
     return (y-E)*y
     
-if __name__ == "__main__":
-    costs = []
-    correctomundo = []
-    mag_de = []
-    n=2
-    iterations = 10000
-    nu = 0.005
-    X = [[0,0],[1,1]]
-    Y = [1,-1]
-    Params = np.random.random((4*n*2))*2*np.pi #Maybe set to normal distribution with mean 0 and small std
-    for it in range(iterations):
-        correct = 0
-        dParams = np.zeros((4*n*2))
-        C = 0
-        for x, y in zip(X,Y):
-            qubits = Circuit(n, x, Params)
-            E = qubits.Exp_val()
-            if np.sign(E) == y:
-                correct += 0.5
-            C += Cost(E, y)
-            dParams += -y*qubits.DE_Dt()
-        dParams /= len(X)
-        mag_de.append(sum(np.abs(dParams)))
-        Params -= nu*dParams
-        costs.append(C)
-        correctomundo.append(correct)
+# if __name__ == "__main__":
+#     costs = []
+#     correctomundo = []
+#     mag_de = []
+#     n=2
+#     iterations = 10000
+#     nu = 0.005
+#     X = [[0,0],[1,1]]
+#     Y = [1,-1]
+#     Params = np.random.random((4*n*2))*2*np.pi #Maybe set to normal distribution with mean 0 and small std
+#     for it in range(iterations):
+#         correct = 0
+#         dParams = np.zeros((4*n*2))
+#         C = 0
+#         for x, y in zip(X,Y):
+#             qubits = Circuit(n, x, Params)
+#             E = qubits.Exp_val()
+#             if np.sign(E) == y:
+#                 correct += 0.5
+#             C += Cost(E, y)
+#             dParams += -y*qubits.DE_Dt()
+#         dParams /= len(X)
+#         mag_de.append(sum(np.abs(dParams)))
+#         Params -= nu*dParams
+#         costs.append(C)
+#         correctomundo.append(correct)
         
-    plt.plot(costs, 'g-')
-    plt.plot(correctomundo, 'bx')
-    plt.plot(mag_de, 'k-')
+#     plt.plot(costs, 'g-')
+#     plt.plot(correctomundo, 'bx')
+#     plt.plot(mag_de, 'k-')
 
     # times = []
     # for n in N:
