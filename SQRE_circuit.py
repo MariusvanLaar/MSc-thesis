@@ -13,37 +13,23 @@ class Qubits(object):
     def __init__(self, n):
         self.n = n
         self.decomp_states = [[np.array([[1,0],[0,0]]) for N in range(n)]]
-        self.derivatives = []
         
-    def Rx(self, Thetas, free=True):
+    def apply(self, U, rho):
+        return np.matmul(U, np.matmul(rho, U.conj().T))
+        
+    def Rx(self, Thetas):
         i = 0+1j
-        def rx(angle, comp_der):
-            if not comp_der:
-                return np.array([[np.cos(angle/2), -i*np.sin(angle/2)],[-i*np.sin(angle/2), np.cos(angle/2)]])
-            else:
-                return (-i/2)*np.array([[-i*np.sin(angle/2), np.cos(angle/2)],[np.cos(angle/2), -i*np.sin(angle/2)]])
-        new_decomp_states = [[np.matmul(rx(theta, comp_der=False), qubit) for (qubit, theta) in zip(qubits, Thetas)] for qubits in self.decomp_states]
-        self.derivatives = [[[np.matmul(rx(theta, comp_der=False), qubit) for (qubit, theta) in zip(qubits, Thetas)] for qubits in fparam_string]
-                                    for fparam_string in self.derivatives]
-        if free:
-            self.derivatives.append([[np.matmul(rx(theta, comp_der=True), qubit) for (qubit, theta) in zip(qubits, Thetas)] for qubits in self.decomp_states])
-        
-        self.decomp_states = new_decomp_states
+        def rx(angle):
+            return np.array([[np.cos(angle/2), -i*np.sin(angle/2)],[-i*np.sin(angle/2), np.cos(angle/2)]])
+
+        self.decomp_states = [[self.apply(rx(theta), qubit) for (qubit, theta) in zip(qubits, Thetas)] for qubits in self.decomp_states]
         
     def Rz(self, Thetas, free=True):
         i = 0+1j
-        def rz(angle, comp_der):
-            if not comp_der:
-                return np.array([[np.exp(-i*angle/2),0],[0,np.exp(i*angle/2)]])
-            else:
-                return (-i/2)*np.array([[np.exp(-i*angle/2),0],[0,-np.exp(i*angle/2)]])
-        new_decomp_states = [[np.matmul(rz(theta, comp_der=False), qubit) for (qubit, theta) in zip(qubits, Thetas)] for qubits in self.decomp_states]
-        self.derivatives = [[[np.matmul(rz(theta, comp_der=False), qubit) for (qubit, theta) in zip(qubits, Thetas)] for qubits in fparam_string]
-                                    for fparam_string in self.derivatives]
-        if free:    
-            self.derivatives.append([[np.matmul(rz(theta, comp_der=True), qubit) for (qubit, theta) in zip(qubits, Thetas)] for qubits in self.decomp_states])
-        
-        self.decomp_states = new_decomp_states
+        def rz(angle):
+            return np.array([[np.exp(-i*angle/2),0],[0,np.exp(i*angle/2)]])
+
+        self.decomp_states = [[self.apply(rz(theta), qubit) for (qubit, theta) in zip(qubits, Thetas)] for qubits in self.decomp_states]
         
     def Entangle(self, indices):
         i = (0+1j)
@@ -55,13 +41,7 @@ class Qubits(object):
                 new_decomp_states.append([np.matmul(X, qubit) if k==i or k==j else qubit for k, qubit in enumerate(qubit_string)])
                 new_decomp_states.append([np.matmul(Ze, qubit) if k==i or k==j else qubit for k, qubit in enumerate(qubit_string)])
             self.decomp_states = new_decomp_states
-            for a, fparam_string in enumerate(self.derivatives):
-                new_derivative_states = []
-                for qubit_string in fparam_string:
-                    new_derivative_states.append([np.matmul(X, qubit) if k==i or k==j else qubit for k, qubit in enumerate(qubit_string)])
-                    new_derivative_states.append([np.matmul(Ze, qubit) if k==i or k==j else qubit for k, qubit in enumerate(qubit_string)])
-                self.derivatives[a] = new_derivative_states
-            
+
     def final_state(self):
         def krons(A):
             if len(A)==2:
@@ -80,12 +60,8 @@ class Qubits(object):
     
     def Exp_val(self):
         return sum([np.product([self.exp_val_Z(U) for U in decomp]) for decomp in self.decomp_states])        
-    
-    def DE_Dt(self):
-        exp_n = [[[self.exp_val_Z(U) for U in decomp] for decomp in fparam] for fparam in self.derivatives]
-        return np.array(exp_n).sum(axis=1).flatten()
-   
-    
+
+
 def Circuit(n, x, Thetas, take_derivative=True):
     qubits = Qubits(n)
     qubits.Rx(x[:n], free=False)
