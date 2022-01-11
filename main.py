@@ -5,37 +5,70 @@ Created on Mon Dec 27 10:10:55 2021
 @author: Marius
 """
 
+
+### TODO
+# Batch functionality, works but is a bit clunky
+# Datafactory
+
+
+
 from model import BasicModel
 import torch.nn as nn
 import torch
+import matplotlib.pyplot as plt
+from datafactory import DataFactory
+from torch.utils.data import DataLoader
+from numpy import pi
 
-X = torch.Tensor([[0.1, 0.4], [0.6, 0.9]]).double()
-Y = torch.Tensor([[-1, -1], [1, 1]]).double()
-n_qubits = 2
-criterion = nn.MSELoss()
-model = BasicModel(n_qubits)
-layers=[x.data for x in model.parameters()]
-print(layers)
-optimizer = torch.optim.AdamW(model.parameters(), lr=0.01)
-losses = []
-for epoch in range(2000):
-    
-    loss = None
-    
-    def loss_closure():
-        x, y = X[0], Y[0]
-        optimizer.zero_grad()
-        state, O = model(x)
+
+def train(model, optimizer, batch_size, n_qubits):
+    optim=optimizer
+    criterion = nn.MSELoss()
+
+    dataset = DataFactory(batch_size, n_qubits)
+    losses = []
+    for epoch in range(5):
+
+        print(epoch)
+        x, y = dataset.next_batch() 
         
-        loss = criterion(O.real, y.view(-1,1,1))
+        state, output = model(x)
+        loss = criterion(output.real, y.real)
         
-        if loss.requires_grad:
-            loss.backward()
-            
-        return loss
-    
-    optimizer.step(loss_closure)
-    layers += [x.data for x in model.parameters()]
-    
-    losses.append(loss_closure())
+        #Backpropagation
+        optim.zero_grad()
+        loss.backward()
+        optim.step()
         
+        losses.append(loss.item())
+        print([p for p in model.parameters()])        
+    return losses
+
+
+
+n_qubits = 3
+batch_size = 1
+model = BasicModel(n_qubits, batch_size)
+optim = torch.optim.AdamW(model.parameters(), lr=0.05)
+L = train(model, optim, batch_size, n_qubits)
+
+# losses = []
+# for i in range(10):
+#     train_features, train_labels = next(iter(train_dataloader))
+#     print(train_features, train_labels)
+#     state, O = model(train_features)
+#     print(state.shape)
+#     loss = criterion(O.real, train_labels)
+        
+        
+#     #Backpropagation
+#     optim.zero_grad()
+#     loss.backward(retain_graph=True)
+#     optim.step()
+        
+#     losses.append(loss.item())
+
+
+# plt.plot(losses, alpha=0.5)
+#plt.hlines(1, 0, 500, colors="r")
+#plt.ylim(0.9, 1.1)
