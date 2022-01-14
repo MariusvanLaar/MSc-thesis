@@ -7,8 +7,11 @@ Created on Mon Dec 27 10:10:55 2021
 
 
 ### TODO
-# Batch functionality, works but is a bit clunky
-# Datafactory
+# Nice way to create the circuit model, perhaps use inheritance with a base class?
+# Dataset
+# Timing
+# Model can learn
+# Data reuploading
 
 
 
@@ -19,6 +22,7 @@ import matplotlib.pyplot as plt
 from datafactory import DataFactory
 from torch.utils.data import DataLoader
 from numpy import pi
+import time
 
 
 def train(model, optimizer, batch_size, n_qubits):
@@ -27,9 +31,7 @@ def train(model, optimizer, batch_size, n_qubits):
 
     dataset = DataFactory(batch_size, n_qubits)
     losses = []
-    for epoch in range(5):
-
-        print(epoch)
+    for epoch in range(4):
         x, y = dataset.next_batch() 
         
         state, output = model(x)
@@ -41,17 +43,25 @@ def train(model, optimizer, batch_size, n_qubits):
         optim.step()
         
         losses.append(loss.item())
-        print([p for p in model.parameters()])        
     return losses
 
 
-
+start = time.time()
 n_qubits = 3
 batch_size = 1
 model = BasicModel(n_qubits, batch_size)
+# psi, O = model("")
+# P = torch.zeros(8,1)
+# psi1 = psi[0]
+# for i in range(psi1.shape[1]):
+#     p = torch.kron(psi1[0,i], torch.kron(psi1[1,i], psi1[2,i]))
+#     P = torch.add(P, p)
+# print(P)
+    
 optim = torch.optim.AdamW(model.parameters(), lr=0.05)
-L = train(model, optim, batch_size, n_qubits)
-
+# L = train(model, optim, batch_size, n_qubits)
+# end = time.time()
+# print(end-start)
 # losses = []
 # for i in range(10):
 #     train_features, train_labels = next(iter(train_dataloader))

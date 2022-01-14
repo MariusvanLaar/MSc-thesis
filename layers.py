@@ -69,11 +69,11 @@ class Rz_layer(nn.Module):
         self.num_qubits = len(qubits)
         self.batch_size = batch_size
         if weights is None:
-            self.weights = nn.Parameter(torch.Tensor(self.batch_size, self.num_qubits))
+            self.weights = nn.Parameter(torch.Tensor(self.batch_size, self.num_qubits,1,1,1))
             nn.init.uniform_(self.weights, 0, 2*np.pi)
         else:
             if weights.shape[1] == 1 and len(qubits) > 1:
-                self.weights = weights.repeat(1, len(qubits))
+                self.weights = weights.repeat(1, len(qubits),1,1,1)
             elif weights.shape[0] == batch_size and weights.shape[1] == len(qubits):
                 self.weights = weights
             else:
@@ -81,15 +81,13 @@ class Rz_layer(nn.Module):
 
     def Rz(self):
         a = 1j*(self.weights/2)
-        Z = torch.Tensor([[-1,1]]).reshape(1,1,2,).repeat(self.batch_size,self.num_qubits,1,)
-        return torch.diag_embed((a*Z).exp(), dim1=2, dim2=3)
+        Z = torch.Tensor([[-1,1]])
+        return torch.diag_embed((a*Z).exp())[:,:,0] #Trim extra dimension with slice
         
            
     def forward(self, state):
         """
         Take state to be a tensor with dimension qubits x d&c x density matrix (2 x 2) 
-        Yet to include d&c dimension into this functions calculations
-        When you do make sure to adjust .transpose as necessary
         """
         U = self.Rz().cdouble()
         state[:,self.qubits] = torch.matmul(U, state[:,self.qubits])
@@ -105,22 +103,32 @@ class Entangle_layer(nn.Module):
         
         super().__init__()
         
+        assert np.any([i!=j for (i,j) in qubit_pairs]), "Invalid pairs included"
         self.qubit_pairs = qubit_pairs
+        
         
         X = torch.Tensor([[0,1],[1,0]]) / 2**0.25
         Z = (1j**0.5)*torch.Tensor([[1,0],[0,-1]]) / 2**0.25
         self.U = torch.stack((X,Z)).reshape(1,1,2,2,2).cdouble()
         
     def forward(self, state):
+        indices = []
         state = state.repeat(1,1,2,1,1)
-        if state.shape[2] != self.U.shape[2]:
-            repeats = state.shape[2] // self.U.shape[2]
-            U = self.U.repeat(1,1,repeats,1,1).cdouble()
-        else:
-            U = self.U.cdouble()
+        reps = state.shape[2] // 2
+        U = self.U.repeat_interleave(reps, dim=2)
+        print(state.shape)
+        print(U.shape)
         for i,j in self.qubit_pairs:
+            if i in indices or j in indices:
+                state = state.repeat(1,1,2,1,1)
+                U = self.U.repeat_interleave(2, dim=2)
+                print(U.shape)
+                print(state.shape)
+
             state[:,i] = torch.matmul(U, state[:,i])
             state[:,j] = torch.matmul(U, state[:,j])
+            indices.append(i)
+            indices.append(j)
             
         return state
   
