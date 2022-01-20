@@ -15,7 +15,7 @@ Created on Mon Dec 27 10:10:55 2021
 
 
 
-from model import BasicModel
+from model import BasicModel, TestModel
 import torch.nn as nn
 import torch
 import matplotlib.pyplot as plt
@@ -29,9 +29,9 @@ def train(model, optimizer, batch_size, n_qubits):
     optim=optimizer
     criterion = nn.MSELoss()
 
-    dataset = DataFactory(batch_size, n_qubits)
+    dataset = DataFactory(batch_size, n_qubits, 10)
     losses = []
-    for epoch in range(4):
+    for epoch in range(300):
         x, y = dataset.next_batch() 
         
         state, output = model(x)
@@ -45,40 +45,34 @@ def train(model, optimizer, batch_size, n_qubits):
         losses.append(loss.item())
     return losses
 
+times = []
+QUBITS = [*range(5, 13)]
+for q in QUBITS:
+    start = time.time()
+    n_qubits = q
+    batch_size = 1
+    model = BasicModel(n_qubits, batch_size)
+    optim = torch.optim.AdamW(model.parameters(), lr=0.05)
+    L = train(model, optim, batch_size, n_qubits)
+    end = time.time()
+    times.append(end-start)
+    
+plt.plot(QUBITS, times)
+plt.xlabel("Qubits")
+plt.ylabel("Time, s")
+plt.title("")
+# plt.savefig('DCdimTiming')
+    
+# n_qubits = 2
+# batch_size = 1
+# model = TestModel(n_qubits, batch_size,1)
+# s, O = model(0)
 
-start = time.time()
-n_qubits = 3
-batch_size = 1
-model = BasicModel(n_qubits, batch_size)
+
 # psi, O = model("")
-# P = torch.zeros(8,1)
+# P = torch.zeros(16,1)
 # psi1 = psi[0]
 # for i in range(psi1.shape[1]):
-#     p = torch.kron(psi1[0,i], torch.kron(psi1[1,i], psi1[2,i]))
+#     p = krons(psi1[:,i])
 #     P = torch.add(P, p)
 # print(P)
-    
-optim = torch.optim.AdamW(model.parameters(), lr=0.05)
-# L = train(model, optim, batch_size, n_qubits)
-# end = time.time()
-# print(end-start)
-# losses = []
-# for i in range(10):
-#     train_features, train_labels = next(iter(train_dataloader))
-#     print(train_features, train_labels)
-#     state, O = model(train_features)
-#     print(state.shape)
-#     loss = criterion(O.real, train_labels)
-        
-        
-#     #Backpropagation
-#     optim.zero_grad()
-#     loss.backward(retain_graph=True)
-#     optim.step()
-        
-#     losses.append(loss.item())
-
-
-# plt.plot(losses, alpha=0.5)
-#plt.hlines(1, 0, 500, colors="r")
-#plt.ylim(0.9, 1.1)

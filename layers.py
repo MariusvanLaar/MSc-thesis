@@ -29,7 +29,7 @@ class Rx_layer(nn.Module):
             self.weights.cdouble()
         else:
             if weights.shape[1] == 1 and self.num_qubits > 1:
-                self.weights = weights.repeat(1, self.num_qubits)
+                self.weights = weights.repeat(1, self.num_qubits, 1,1,1)
             elif weights.shape[0] == batch_size and weights.shape[1] == len(qubits):
                 self.weights = weights
             else:
@@ -41,7 +41,7 @@ class Rx_layer(nn.Module):
         b = (self.weights/2).sin()
         identity = torch.eye(2)
         off_identity = torch.Tensor([[0,1],[1,0]])
-        return a*identity - 1j*b*off_identity
+        return a*identity - b*off_identity
         
            
     def forward(self, state):
@@ -73,7 +73,7 @@ class Rz_layer(nn.Module):
             nn.init.uniform_(self.weights, 0, 2*np.pi)
         else:
             if weights.shape[1] == 1 and len(qubits) > 1:
-                self.weights = weights.repeat(1, len(qubits),1,1,1)
+                self.weights = weights.repeat(1, self.num_qubits,1,1,1)
             elif weights.shape[0] == batch_size and weights.shape[1] == len(qubits):
                 self.weights = weights
             else:
@@ -116,19 +116,18 @@ class Entangle_layer(nn.Module):
         state = state.repeat(1,1,2,1,1)
         reps = state.shape[2] // 2
         U = self.U.repeat_interleave(reps, dim=2)
-        print(state.shape)
-        print(U.shape)
+        num_repeat_indices = 1
         for i,j in self.qubit_pairs:
-            if i in indices or j in indices:
-                state = state.repeat(1,1,2,1,1)
-                U = self.U.repeat_interleave(2, dim=2)
-                print(U.shape)
-                print(state.shape)
-
-            state[:,i] = torch.matmul(U, state[:,i])
-            state[:,j] = torch.matmul(U, state[:,j])
             indices.append(i)
             indices.append(j)
+            unique, count = np.unique(indices, return_counts=True)
+            if count.max() > num_repeat_indices:
+                state = state.repeat(1,1,2,1,1)
+                U = U.repeat_interleave(2, dim=2)
+                num_repeat_indices += 1
+                    
+            state[:,i] = torch.matmul(U, state[:,i])
+            state[:,j] = torch.matmul(U, state[:,j])
             
         return state
   
