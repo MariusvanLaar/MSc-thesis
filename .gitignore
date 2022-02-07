@@ -3,7 +3,8 @@
 *__pycache__*
 CIFAR-15-test.pkl
 CIFAR-15-train.pkl
-*.png
-playground.py
 MG_simulator.py
+*.png
 SQRE_circuit.py
+playground.py
+
