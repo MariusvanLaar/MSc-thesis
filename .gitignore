@@ -1,0 +1,9 @@
+.ipynb_checkpoints/
+.vscode/
+*__pycache__*
+CIFAR-15-test.pkl
+CIFAR-15-train.pkl
+*.png
+playground.py
+MG_simulator.py
+SQRE_circuit.py
