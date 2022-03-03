@@ -235,7 +235,7 @@ class CNOT_layer(nn.Module):
                 
     
 class Entangle_layer(nn.Module):
-    """A layer applying the 1/sqrt(2) XX+iZZ gate to given pairs of qubits"""
+    """A layer applying the CNOT gate to given pairs of qubits in different blocks"""
     def __init__(self, coordinates, n_qubits):
         """
         qubit_pairs: a list of tuples containing pairs of qubits to be entangled in a single layer
@@ -256,6 +256,7 @@ class Entangle_layer(nn.Module):
         self.S[1,1] = -1j #This is actually S_conj just to save an unneccesary .conj() operation
 
         
+    # Change this to feed in the explicit form of the matrix rather than calculating
     def control_U(self, Pauli):
         return torch.mm(self.S, Pauli)
     
@@ -266,7 +267,7 @@ class Entangle_layer(nn.Module):
         U = control_or_target
         if q_idx > 0 and q_idx < self.n_qubits - 1:
             pre_I = torch.eye(2**(q_idx))
-            post_I = torch.eye(2**(self.n_qubits-q_idx))
+            post_I = torch.eye(2**(self.n_qubits-q_idx-1))
             return torch.kron(pre_I, torch.kron(U, post_I))
         elif q_idx == 0:
             post_I = torch.eye(2**(self.n_qubits-1))
@@ -277,37 +278,29 @@ class Entangle_layer(nn.Module):
         else:
             raise ValueError("Invalid qubit index given")    
     
-    def forward(self, state, ent_pairs):
+    def forward(self, state):
         """
         state is a batch_size x n_blocks x d&c x 2**n_qubits x 1
         ent_pairs is a list of lists containing pairs of idxs of entangled blocks"""
-        # try:
-        #     block_indices = reduce(operator.add, ent_pairs)
-        #     num_repeat_indices = np.unique(block_indices, return_counts=True)[1].max()
-        # except TypeError:
-        #     block_indices = []
-        #     num_repeat_indices = 0
+        
         state = state.repeat(1,1,2,1,1)
         for gate in self.coordinates:
-            # ent_pairs.append([gate[0][0], gate[1][0]])
             
-            for j, (block_idx, qubit_idx) in enumerate(gate):
-                # block_indices.append(block_idx)                
-                # _, count = np.unique(block_indices, return_counts=True)
-                # if count.max() > num_repeat_indices:
-                #     state = state.repeat(1,1,2,1,1)
-                #     num_repeat_indices += 1
-                
+            for j, (block_idx, qubit_idx) in enumerate(gate):        
                     
                 reps = state.shape[2] // 2   
                 if j == 0:                 
-                    state[:, block_idx, :reps] = torch.matmul(self.embed(qubit_idx, self.control_U(self.I)), state[:, block_idx, :reps])
-                    state[:, block_idx, reps:] = torch.matmul(self.embed(qubit_idx, self.control_U(self.Z)), state[:, block_idx, reps:])
+                    state[:, block_idx, :reps] = torch.matmul(self.embed(qubit_idx, self.control_U(self.I)),
+                                                              state[:, block_idx, :reps])
+                    state[:, block_idx, reps:] = torch.matmul(self.embed(qubit_idx, self.control_U(self.Z)),
+                                                              state[:, block_idx, reps:])
                 if j == 1:                 
-                    state[:, block_idx, :reps] = torch.matmul(self.embed(qubit_idx, self.target_U(self.I)), state[:, block_idx, :reps])
-                    state[:, block_idx, reps:] = torch.matmul(self.embed(qubit_idx, self.target_U(self.Z)), state[:, block_idx, reps:])
+                    state[:, block_idx, :reps] = torch.matmul(self.embed(qubit_idx, self.target_U(self.I)),
+                                                              state[:, block_idx, :reps])
+                    state[:, block_idx, reps:] = torch.matmul(self.embed(qubit_idx, self.target_U(self.Z)),
+                                                              state[:, block_idx, reps:])
                        
-        return state, 0#, ent_pairs
+        return state
     
     
     

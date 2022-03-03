@@ -4,7 +4,9 @@
 CIFAR-15-test.pkl
 CIFAR-15-train.pkl
 MG_simulator.py
-*.png
+*.png*
+*.qpic*
 SQRE_circuit.py
 playground.py
-
+qpic.py
+*data*
