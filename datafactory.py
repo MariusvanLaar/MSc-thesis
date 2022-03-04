@@ -21,7 +21,7 @@ class DataFactory(Dataset):
         super().__init__()   
 
         
-        pickle_off = open(filename+test_train+".pkl", 'rb')
+        pickle_off = open("data/"+filename+"-"+test_train+".pkl", 'rb')
         data_dict = pickle.load(pickle_off)
         self.data = data_dict["data"]
         self.labels = data_dict["labels"]
@@ -34,19 +34,3 @@ class DataFactory(Dataset):
         label = self.labels[idx]
         return img, label
 
-
-if __name__ == "__main__":
-    batch_size = 1
-    train_data = DataLoader(DataFactory(test_train="train"),
-                                batch_size=batch_size, shuffle=True)
-    
-    x, y = next(iter(train_data))
-    if y == 0:
-        lab = "dog"
-    elif y == 1:
-        lab = "automobile"
-    
-    # import matplotlib.pyplot as plt
-    # plt.imshow(x.reshape(30,30))
-    # plt.colorbar()
-    # plt.title(lab)

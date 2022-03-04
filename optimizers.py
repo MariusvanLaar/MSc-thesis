@@ -15,8 +15,7 @@ class SPSA(Optimizer):
     
     def __init__(self, params, lr=1):
         
-        defaults = dict(lr=lr, a=0.01, alpha=0.01, gamma=0.02, epoch=0)
-        #num_params = len(params)
+        defaults = dict(lr=lr, a=1, alpha=0.01, gamma=0.02, epoch=0)
         
         super().__init__(params, defaults)
         
@@ -50,16 +49,16 @@ class SPSA(Optimizer):
                     p.add_(-2*lr*pertb_vector)
                     with torch.enable_grad():
                         l2 = closure()
-                    #g = (l1-l2) / 2*lr*pertb_vector
-                    if l1 <= l2:
-                        g = -pertb_vector
-                    else:
-                        g = pertb_vector
+                    g = (l1-l2) / 2*lr*pertb_vector
+                    # if l1 <= l2:
+                    #     g = -pertb_vector
+                    # else:
+                    #     g = pertb_vector
                     p.add_(lr*pertb_vector - a*g)
                     
-            #group['a'] = a/(1+epoch)**alpha
-            #group['lr'] = lr/(1+epoch)**gamma
-            #group['epoch'] += 1
+            group['a'] = a*0.99
+            group['lr'] = lr*0.99
+            group['epoch'] += 1
 
             state = self.state[p]
         if closure is not None:

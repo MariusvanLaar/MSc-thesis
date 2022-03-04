@@ -23,14 +23,13 @@ def krons(psi):
 
 class Rx_layer(nn.Module):
     "A layer applying the Rx gate"
-    def __init__(self, batch_size: int, n_blocks: int, n_qubits: int, weights = None, weights_spread = 0):
+    def __init__(self, n_blocks: int, n_qubits: int, weights = None, weights_spread = 0):
         """
         weights: a tensor of rotation angles, if given from input data
         """
         
         super().__init__()
         
-        self.batch_size = batch_size   
         self.n_blocks = n_blocks
         self.n_qubits = n_qubits
         self.weights_spread = weights_spread
@@ -40,12 +39,18 @@ class Rx_layer(nn.Module):
             nn.init.uniform_(self.weights, -self.weights_spread, self.weights_spread)
             self.weights.cdouble()
         else:
-            if weights.shape[0] == batch_size and weights.shape[1] == n_blocks and weights.shape[3] == n_qubits:
-                self.weights = weights     
-            elif weights.shape[3] == 1 and self.n_qubits > 1: 
-                self.weights = weights.repeat(1,1,1,self.n_qubits,1)
+            self.weights = weights
+            if self.weights.shape[1] == n_blocks*n_qubits:
+                self.weights = self.weights.view(-1, n_blocks, 1, n_qubits, 1, 1)
             else:
-                raise RuntimeError("Dimensions of weight tensor are incompatable. Check the input has the right batch size, block and qubit count")
+                shape = weights.shape
+                self.weights = weights.view(shape[0], shape[1], 1, shape[2], 1, 1)
+            if self.weights.shape[1] == 1 and self.n_blocks > 1:
+                self.weights = self.weights.repeat(1,self.n_blocks,1, 1, 1, 1)
+            if self.weights.shape[3] == 1 and self.n_qubits > 1:
+                self.weights = self.weights.repeat(1,1,1, self.n_qubits, 1, 1)
+                
+            assert self.weights.shape[1] * self.weights.shape[3] == n_blocks*n_qubits, "Dimensions of weight tensor are incompatable. Check the input has the right batch size, block and qubit count"
         
 
     def Rx(self):
@@ -74,14 +79,13 @@ class Rx_layer(nn.Module):
     
 class Ry_layer(nn.Module):
     "A layer applying the Ry gate"
-    def __init__(self, batch_size: int, n_blocks: int, n_qubits: int, weights = None, weights_spread = 0):
+    def __init__(self, n_blocks: int, n_qubits: int, weights = None, weights_spread = 0):
         """
         weights: a tensor of rotation angles, if given from input data
         """
         
         super().__init__()
         
-        self.batch_size = batch_size   
         self.n_blocks = n_blocks
         self.n_qubits = n_qubits
         self.weights_spread = weights_spread
@@ -91,13 +95,18 @@ class Ry_layer(nn.Module):
             nn.init.uniform_(self.weights, -self.weights_spread, self.weights_spread)
             self.weights.cdouble()
         else:
-            if weights.shape[0] == batch_size and weights.shape[1] == n_blocks and weights.shape[3] == n_qubits:
-                self.weights = weights.view(batch_size, n_blocks, 1, n_qubits, 1, 1)     
-            elif weights.shape[3] == 1 and self.n_qubits > 1: 
-                self.weights = weights.repeat(1,1,1,self.n_qubits,1)
+            self.weights = weights
+            if self.weights.shape[1] == n_blocks*n_qubits:
+                self.weights = self.weights.view(-1, n_blocks, 1, n_qubits, 1, 1)
             else:
-                raise RuntimeError("Dimensions of weight tensor are incompatable. Check the input has the right batch size, block and qubit count")
-        
+                shape = weights.shape
+                self.weights = weights.view(shape[0], shape[1], 1, shape[2], 1, 1)
+            if self.weights.shape[1] == 1 and self.n_blocks > 1:
+                self.weights = self.weights.repeat(1,self.n_blocks,1, 1, 1, 1)
+            if self.weights.shape[3] == 1 and self.n_qubits > 1:
+                self.weights = self.weights.repeat(1,1,1, self.n_qubits, 1, 1)
+                                
+            assert self.weights.shape[1] * self.weights.shape[3] == n_blocks*n_qubits, "Dimensions of weight tensor are incompatable. Check the input has the right batch size, block and qubit count"
 
     def Ry(self):
         a = (self.weights/2).cos()
@@ -117,7 +126,7 @@ class Ry_layer(nn.Module):
         for batch_idx in range(U.shape[0]):
             for block_idx in range(self.n_blocks):
                 U[batch_idx, block_idx, :] = krons(Rys[batch_idx, block_idx, 0])
-            
+
         state = torch.matmul(U, state) 
 
         return state
@@ -126,14 +135,13 @@ class Ry_layer(nn.Module):
 
 class Rz_layer(nn.Module):
     "A layer applying the Rz gate"
-    def __init__(self, batch_size: int, n_blocks: int, n_qubits: int, weights = None, weights_spread = 0):
+    def __init__(self, n_blocks: int, n_qubits: int, weights = None, weights_spread = np.pi/2):
         """
         weights: a tensor of rotation angles, if given from input data
         """
         
         super().__init__()
         
-        self.batch_size = batch_size   
         self.n_blocks = n_blocks
         self.n_qubits = n_qubits
         self.weights_spread = weights_spread
@@ -143,12 +151,18 @@ class Rz_layer(nn.Module):
             nn.init.uniform_(self.weights, -self.weights_spread, self.weights_spread)
             self.weights.cdouble()
         else:
-            if weights.shape[0] == batch_size and weights.shape[1] == n_blocks and weights.shape[3] == n_qubits:
-                self.weights = weights     
-            elif weights.shape[3] == 1 and self.n_qubits > 1:
-                self.weights = weights.repeat(1,1,1,self.n_qubits,1)
+            self.weights = weights
+            if self.weights.shape[1] == n_blocks*n_qubits:
+                self.weights = self.weights.view(-1, n_blocks, 1, n_qubits, 1)
             else:
-                raise RuntimeError("Dimensions of weight tensor are incompatable. Check the input has the right batch size, block and qubit count")
+                shape = weights.shape
+                self.weights = weights.view(shape[0], shape[1], 1, shape[2], 1)
+            if self.weights.shape[1] == 1 and self.n_blocks > 1:
+                self.weights = self.weights.repeat(1,self.n_blocks,1, 1, 1)
+            if self.weights.shape[3] == 1 and self.n_qubits > 1:
+                self.weights = self.weights.repeat(1,1,1, self.n_qubits, 1)
+                            
+            assert self.weights.shape[1] * self.weights.shape[3] == n_blocks*n_qubits, "Dimensions of weight tensor are incompatable. Check the input has the right batch size, block and qubit count"
 
     def Rz(self):
         a = -1j*(self.weights/2)
@@ -171,7 +185,7 @@ class Rz_layer(nn.Module):
         return state
     
 class Hadamard_layer(nn.Module):
-    def __init__(self, batch_size: int, n_blocks: int, n_qubits: int):        
+    def __init__(self, n_blocks: int, n_qubits: int):        
         super().__init__()
         
         self.H = torch.Tensor([[1, 1], [1, -1]]).reshape(1,2,2)/(2**0.5)
