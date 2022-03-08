@@ -23,13 +23,13 @@ import pickle
 
 #train(model, optimizer, data_filename, batch_size, epochs, val_batch_size, n_blocks, n_qubits):
 def train(args):
+    start = time.time()
         
     save_name = (
         f"{args.tag}-{args.dataset}-{args.optimizer}-{args.learning_rate}-{args.model}-{args.n_blocks}-{args.n_qubits}-"
         + time.strftime("%m-%d--%H-%M")
-        + ".pkl"
     )
-        
+
     #Set loss function
     if args.loss == "BCE":
         criterion = nn.BCELoss()
@@ -75,9 +75,9 @@ def train(args):
             )
     
     losses = np.zeros((args.epochs))
-    val_losses = np.zeros((args.epochs))
-    accs = np.zeros((args.epochs))
-
+    val_losses = np.zeros((args.epochs//10 + 1))
+    accs = np.zeros((args.epochs//10 + 1))
+    c = 0
     for epoch in range(args.epochs):
         x, y = next(iter(train_data))
         y = y.float()
@@ -92,10 +92,13 @@ def train(args):
             try:
                 loss = criterion(pred, y)
             except RuntimeError:
-                print(pred)
+                with open(save_name+".fail", "a") as f:
+                    print(args, file=f)                
                 loss = criterion(pred, y)
             #Backpropagation
-            loss.backward()
+            if loss.requires_grad:
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             
             return loss
 
@@ -109,65 +112,30 @@ def train(args):
         
         losses[epoch] = loss.item()
         
+        
         if epoch % 10 == 0 or epoch == args.epochs-1:
             with torch.no_grad():
                 x_val, y_val = next(iter(test_data))
                 state, output = model(x_val)
                 pred = output.reshape(*y_val.shape)
                 y_val = y_val.float()
-                accs[epoch] = (torch.round(pred)==y_val).sum().item()/args.val_batch_size
+                accs[c] = (torch.round(pred)==y_val).sum().item()/args.val_batch_size
                 
                 val_loss = criterion(pred, y_val)
-                val_losses[epoch] = val_loss.item()
+                val_losses[c] = val_loss.item()
+                
+                c += 1
                 
                 
+    end = time.time()
     results = {"training_loss": losses, "validation_loss": val_losses,
                "validation_accuracy": accs, "model_state_dict": model.state_dict(),
-               "args": args,
+               "args": args, "timer": end-start,
                }
-    pickling = open("runs/"+save_name, "wb")
+    pickling = open("runs/"+save_name+".pkl", "wb")
     pickle.dump(results, pickling)
     pickling.close()
     
-
-# lrs = [0.01, 0.05, 0.1]
-
-# for lr in lrs:
-#     print()
-#     print(lr)
-#     start = time.time()
-#     batch_size = 20
-#     n_blocks = 2
-#     n_qubits = 5
-#     epochs = 300
-#     reps = 5
-#     L = np.zeros((reps, epochs))
-#     Lv = np.zeros((reps, epochs//10 + 1))
-#     accuracies = np.zeros((reps, epochs//10 + 1))
-#     for rep in range(reps):
-#         model = BasicModel(batch_size, n_blocks, n_qubits)
-#         #model = NeuralNetwork(n_blocks*n_qubits)
-#         optim = torch.optim.Adam(model.parameters(), lr=lr)#SPSA(model.parameters(), lr=lr)#torch.optim.LBFGS(model.parameters(), lr=lr)
-#         L_t, L_v, accs, FW, Os = train(model, optim, "data/wdbc-", batch_size, epochs, batch_size, n_blocks, n_qubits)
-#         L[rep] = np.array(L_t)
-#         Lv[rep] = np.array(L_v)
-#         accuracies[rep] = np.array(accs)
-#         # plt.plot(FW[::8])
-#         # plt.plot(FW[1::8])
-#         # plt.show()
-
-    
-#     end = time.time()
-
-#     print("Median validation loss at final timestep is:")
-#     print(np.median(Lv[:,-1]))
-#     print("Median absolute deviation:")
-#     print(median_abs_deviation(Lv[:,-1]))
-#     plot_mean_std_best(L, "Loss", "min", str(lr))
-#     plot_mean_std_best(Lv, "Validation loss", "min", str(lr))
-#     plot_mean_std_best(accuracies, "Accuracy", "max", str(lr))
-    
-#     print(end-start)
 
 def command_train(args):
     train(args)
@@ -185,7 +153,7 @@ if __name__ == "__main__":
         "--val-batch-size",
         metavar="VALS",
         type=int,
-        default=10,
+        default=20,
         help="number of validation samples to draw each 10 epochs",
     )
     parser.add_argument(
@@ -237,7 +205,7 @@ if __name__ == "__main__":
         "--model",
         metavar="MODEL",
         type=str,
-        default="PQC-01",
+        default="PQC-1A",
         help=f"model; choose between {', '.join(models.model_set.keys())}",
     )
     parser_train.add_argument(
@@ -265,7 +233,7 @@ if __name__ == "__main__":
         "--initial-weights-spread",
         metavar="IWσ",
         type=float,
-        default=0.01,
+        default=pi/2,
         help="initial weights spread for the parameterized Pauli rotation gates",
     )
     parser_train.add_argument(

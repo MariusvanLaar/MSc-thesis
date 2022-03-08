@@ -100,6 +100,7 @@ class Ry_layer(nn.Module):
                 self.weights = self.weights.view(-1, n_blocks, 1, n_qubits, 1, 1)
             else:
                 shape = weights.shape
+                print(shape)
                 self.weights = weights.view(shape[0], shape[1], 1, shape[2], 1, 1)
             if self.weights.shape[1] == 1 and self.n_blocks > 1:
                 self.weights = self.weights.repeat(1,self.n_blocks,1, 1, 1, 1)
@@ -297,8 +298,8 @@ class Entangle_layer(nn.Module):
         state is a batch_size x n_blocks x d&c x 2**n_qubits x 1
         ent_pairs is a list of lists containing pairs of idxs of entangled blocks"""
         
-        state = state.repeat(1,1,2,1,1)
         for gate in self.coordinates:
+            state = state.repeat(1,1,2,1,1)
             
             for j, (block_idx, qubit_idx) in enumerate(gate):        
                     
@@ -316,70 +317,6 @@ class Entangle_layer(nn.Module):
                        
         return state
     
-    
-    
-    ### OLD
-class _Entangle_layer(nn.Module):
-    """A layer applying the 1/sqrt(2) XX+iZZ gate to given pairs of qubits"""
-    def __init__(self, coordinates, n_qubits):
-        """
-        qubit_pairs: a list of tuples containing pairs of qubits to be entangled in a single layer
-        """
-        
-        super().__init__()
-        
-        self.n_qubits = n_qubits
-        self.coordinates = coordinates
-        self.ent_blocks = []
-        # qubit pairs should be a list of tuples of the form ((block_idx1, qubit_idx1), (block_idx2, qubit_idx2))
-        
-        X = torch.Tensor([[0,1],[1,0]]) / 2**0.25
-        Z = (1j**0.5)*torch.Tensor([[1,0],[0,-1]]) / 2**0.25
-        
-        if self.n_qubits > 1:       
-            Uxs = torch.zeros((n_qubits, 2**n_qubits, 2**n_qubits))
-            Uzs = torch.zeros((n_qubits, 2**n_qubits, 2**n_qubits))
-            Uxs[0] = torch.kron(X, torch.eye(2**(n_qubits-1)))
-            Uzs[0] = torch.kron(Z, torch.eye(2**(n_qubits-1)))
-            Uxs[-1] = torch.kron(torch.eye(2**(n_qubits-1)), X)
-            Uzs[-1] = torch.kron(torch.eye(2**(n_qubits-1)), Z)
-            for i in range(1, n_qubits-1):
-                Uxs[i] = torch.kron(torch.eye(2**i), torch.kron(X, torch.eye(2**(n_qubits-i-1))))
-                Uxs[i] = torch.kron(torch.eye(2**i), torch.kron(Z, torch.eye(2**(n_qubits-i-1))))
-            self.Uxs = Uxs.cdouble()
-            self.Uzs = Uzs.cdouble()
-        
-        else:
-            self.Uxs = X.view(1,2,2).cdouble()
-            self.Uzs = Z.view(1,2,2).cdouble()
-        
-    def forward(self, state, ent_pairs):
-        """
-        state is a batch_size x n_blocks x d&c x 2**n_qubits x 1
-        ent_pairs is a list of lists containing pairs of idxs of entangled blocks"""
-        try:
-            block_indices = reduce(operator.add, ent_pairs)
-            num_repeat_indices = np.unique(block_indices, return_counts=True)[1].max()
-        except TypeError:
-            block_indices = []
-            num_repeat_indices = 0
-                
-        for gate in self.coordinates:
-            ent_pairs.append([gate[0][0], gate[1][0]])
-            
-            for block_idx, qubit_idx in gate:
-                block_indices.append(block_idx)                
-                _, count = np.unique(block_indices, return_counts=True)
-                if count.max() > num_repeat_indices:
-                    state = state.repeat(1,1,2,1,1)
-                    num_repeat_indices += 1
-                    
-                reps = state.shape[2] // 2                    
-                state[:, block_idx, :reps] = torch.matmul(self.Uxs[qubit_idx], state[:, block_idx, :reps])
-                state[:, block_idx, reps:] = torch.matmul(self.Uzs[qubit_idx], state[:, block_idx, reps:])            
-                       
-        return state, ent_pairs
-  
     
     
     

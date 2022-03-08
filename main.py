@@ -15,7 +15,7 @@ Created on Mon Dec 27 10:10:55 2021
 
 
 
-from model import BasicModel, TestModel, NeuralNetwork
+from models import *
 import torch.nn as nn
 import torch
 import matplotlib.pyplot as plt
@@ -42,6 +42,9 @@ def train(model, optimizer, data_filename, batch_size, epochs, val_batch_size, n
     first_weight = []
     outputs = []
     for epoch in range(epochs):
+        # if epoch == 0:
+        #     for name, param in model.named_parameters():
+        #         print(name, param)
         x, y = next(iter(train_data))
         y = y.float()
         loss = None
@@ -53,34 +56,24 @@ def train(model, optimizer, data_filename, batch_size, epochs, val_batch_size, n
             state, output = model(x)
             pred = output.reshape(*y.shape)
             #accs.append((torch.round(pred)==y).sum().item()/batch_size)
-            try:
-                loss = criterion(pred, y)
-            except RuntimeError:
-                print(pred)
-                loss = criterion(pred, y)
+            loss = criterion(pred, y)
             #Backpropagation
-            loss.backward()
+            if loss.requires_grad:
+                loss.backward()
             
             return loss
 
         optimizer.step(loss_closure)
-        
-        # for name, param in model.named_parameters():
-        #     if param.requires_grad:
-        #         # print(name, param.data)
-        #         # print(param.data[0,0,0,0,0].item())
-        #         first_weight.append(param.data[0,0,0,0,0].item())
+                
+        for name, param in model.named_parameters():
+            first_weight.append(param.data.view(-1)[0].item())
         
         losses.append(loss.item())
         
-        if epoch % 10 == 0 or epoch == (epochs-1):
-            val_model = BasicModel(val_batch_size, n_blocks, n_qubits)
-            #val_model = NeuralNetwork(n_blocks*n_qubits)
-            
-            val_model.load_state_dict(model.state_dict())
+        if epoch % 10 == 0 or epoch == (epochs-1):            
             
             x_val, y_val = next(iter(test_data))
-            state, output = val_model(x_val)
+            state, output = model(x_val)
             pred = output.reshape(*y_val.shape)
             y_val = y_val.float()
             outputs.append((y_val*pred)[0].item())
@@ -107,44 +100,47 @@ def plot_mean_std_best(data, y_label, min_max, title):
     plt.title(title)
     plt.show()
 
-lrs = [0.01, 0.05, 0.1]
+lrs = [0.05]
 
 for lr in lrs:
     print()
     print(lr)
     start = time.time()
-    batch_size = 20
+    batch_size = 10
     n_blocks = 2
     n_qubits = 5
-    epochs = 300
+    epochs = 250
     reps = 5
     L = np.zeros((reps, epochs))
-    Lv = np.zeros((reps, epochs//10 + 1))
+    #Lv = np.zeros((reps, epochs//10 + 1))
     accuracies = np.zeros((reps, epochs//10 + 1))
     for rep in range(reps):
-        model = BasicModel(batch_size, n_blocks, n_qubits)
+        model = PQC_1A(n_blocks, n_qubits)
         #model = NeuralNetwork(n_blocks*n_qubits)
-        optim = torch.optim.Adam(model.parameters(), lr=lr)#SPSA(model.parameters(), lr=lr)#torch.optim.LBFGS(model.parameters(), lr=lr)
-        L_t, L_v, accs, FW, Os = train(model, optim, "data/wdbc-", batch_size, epochs, batch_size, n_blocks, n_qubits)
+        optim = SPSA(model.parameters(), lr=lr)
+        L_t, L_v, accs, FW, Os = train(model, optim, "wdbc", batch_size, epochs, batch_size, n_blocks, n_qubits)
+        plt.plot(L_t)
+        #plt.show()
         L[rep] = np.array(L_t)
-        Lv[rep] = np.array(L_v)
+        #Lv[rep] = np.array(L_v)
         accuracies[rep] = np.array(accs)
-        # plt.plot(FW[::8])
-        # plt.plot(FW[1::8])
-        # plt.show()
+    plt.title(str(lr))
+    plt.show()
+    
+    print(np.median(accuracies[:,-1]))
 
     
-    end = time.time()
+    # end = time.time()
 
-    print("Median validation loss at final timestep is:")
-    print(np.median(Lv[:,-1]))
-    print("Median absolute deviation:")
-    print(median_abs_deviation(Lv[:,-1]))
-    plot_mean_std_best(L, "Loss", "min", str(lr))
-    plot_mean_std_best(Lv, "Validation loss", "min", str(lr))
-    plot_mean_std_best(accuracies, "Accuracy", "max", str(lr))
+    # print("Median validation loss at final timestep is:")
+    # print(np.median(Lv[:,-1]))
+    # print("Median absolute deviation:")
+    # print(median_abs_deviation(Lv[:,-1]))
+    # plot_mean_std_best(L, "Loss", "min", str(lr))
+    # plot_mean_std_best(Lv, "Validation loss", "min", str(lr))
+    # plot_mean_std_best(accuracies, "Accuracy", "max", str(lr))
     
-    print(end-start)
+    # print(end-start)
 
 
 
