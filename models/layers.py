@@ -100,7 +100,6 @@ class Ry_layer(nn.Module):
                 self.weights = self.weights.view(-1, n_blocks, 1, n_qubits, 1, 1)
             else:
                 shape = weights.shape
-                print(shape)
                 self.weights = weights.view(shape[0], shape[1], 1, shape[2], 1, 1)
             if self.weights.shape[1] == 1 and self.n_blocks > 1:
                 self.weights = self.weights.repeat(1,self.n_blocks,1, 1, 1, 1)

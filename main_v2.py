@@ -16,7 +16,7 @@ import numpy as np
 import time
 from torch.utils.data import DataLoader
 from scipy.stats import median_abs_deviation
-from optimizers import SPSA
+from optimizers import SPSA, CMA
 import data, models
 import pickle
 
@@ -73,6 +73,11 @@ def train(args):
             lr=args.learning_rate,
             history_size=25,
             )
+    elif args.optimizer == "cma":
+        optimizer = CMA(
+            model.parameters(),
+            lr=args.learning_rate,
+            )
     
     losses = np.zeros((args.epochs))
     val_losses = np.zeros((args.epochs//10 + 1))
@@ -92,7 +97,7 @@ def train(args):
             try:
                 loss = criterion(pred, y)
             except RuntimeError:
-                with open(save_name+".fail", "a") as f:
+                with open("fails/"+save_name+".fail", "a") as f:
                     print(args, file=f)                
                 loss = criterion(pred, y)
             #Backpropagation

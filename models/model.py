@@ -324,7 +324,106 @@ class PQC_2Y(BaseModel):
                 
         return state, self.exp_val(state)
     
+class PQC_3D(BaseModel):
+    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: float = 1, grant_init: bool = False):
+        super().__init__(n_blocks, n_qubits, weights_spread, grant_init)   
+                
+        def copy_weights(control_seq, target_seq):
+            """Copies weights of one nn.Sequential layer into a target nn.Sequential layer and multiplies by a factor of -1"""
+            for u in range(len(control_seq)):
+                target_seq[u].weights = nn.Parameter(-control_seq[u].weights)
+        
+        self.cnot = self.cnot_(0,1)
+        self.fR0w = nn.Parameter(self.YfRot()[0].weights.view(1,-1))
+        self.fR1w = nn.Parameter(self.YfRot()[0].weights.view(1,-1))
+        self.fR2 = self.YfRot()
 
+        #self.H = Hadamard_layer(n_blocks, n_qubits)
+
+        self.Entangle = Entangle_layer([[[0,0],[1,0]], [[1,4],[0,4]], [[0,1],[1,3]], [[1,2],[0,2]]],
+                                        self.n_qubits)
+        # self.Entangle = Entangle_layer([[[0,2],[1,2]],[[0,0],[2,2]],[[0,3],[3,3]],
+        #                                 [[0,2],[5,2]],[[5,1],[1,3]],# [[8,0],[4,3]],
+        #                                 ], self.n_qubits)
+        
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+        if x.shape[1] != self.n_blocks*self.n_qubits:
+            x = torch.narrow(x, 1, 0, self.n_blocks*self.n_qubits)[:,self.randperm]
+        
+        Ry_data0 = Ry_layer(self.n_blocks, self.n_qubits, weights=self.fR0w*x)
+        Ry_data1 = Ry_layer(self.n_blocks, self.n_qubits, weights=self.fR1w*x)
+        
+        state = torch.zeros((batch_size, self.n_blocks, 1, 2**self.n_qubits, 1), dtype=torch.cdouble)
+        state[:, :, :, :, 0] = 2**(-self.n_qubits/2)
+        #state[:, :, :, 0, 0] = 1
+        
+        #state = self.H(state) #Implicitly included in state
+        
+        state = Ry_data0(state)
+        state = self.cnot(state)
+        state = Ry_data1(state)
+        state = self.Entangle(state)
+        state = self.fR2(state)
+                
+        return state, self.exp_val(state)
+    
+class PQC_3B(BaseModel):
+    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: float = 1, grant_init: bool = False):
+        super().__init__(n_blocks, n_qubits, weights_spread, grant_init)   
+                
+        def copy_weights(control_seq, target_seq):
+            """Copies weights of one nn.Sequential layer into a target nn.Sequential layer and multiplies by a factor of -1"""
+            for u in range(len(control_seq)):
+                target_seq[u].weights = nn.Parameter(-control_seq[u].weights)
+        
+        self.cnot = self.cnot_(0,1)
+        # if grant_init:
+        #     copy_weights(self.fR0, self.fR1)
+        self.fR0w = nn.Parameter(self.YfRot()[0].weights.view(1,-1))
+        self.fR1 = self.YfRot()
+        self.fR2w = nn.Parameter(self.YfRot()[0].weights.view(1,-1))
+        self.fR3 = self.YfRot()
+        self.fR4w = nn.Parameter(self.YfRot()[0].weights.view(1,-1))
+        self.fR5 = self.YfRot()
+        # if grant_init:
+        #     copy_weights(self.fR2, self.fR3)
+        #self.H = Hadamard_layer(n_blocks, n_qubits)
+
+        self.Entangle = Entangle_layer([[[0,0],[1,0]], [[1,4],[0,4]], [[0,1],[1,3]], [[1,2],[0,2]]],
+                                        self.n_qubits)
+        # self.Entangle = Entangle_layer([[[0,2],[1,2]],[[0,0],[2,2]],[[0,3],[3,3]],
+        #                                 [[0,2],[5,2]],[[5,1],[1,3]],# [[8,0],[4,3]],
+        #                                 ], self.n_qubits)
+        
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+        if x.shape[1] != self.n_blocks*self.n_qubits:
+            x = torch.narrow(x, 1, 0, self.n_blocks*self.n_qubits)[:,self.randperm]
+
+        Ry_data0 = Ry_layer(self.n_blocks, self.n_qubits, weights=self.fR0w*x)
+        Ry_data2 = Ry_layer(self.n_blocks, self.n_qubits, weights=self.fR2w*x)
+        Ry_data4 = Ry_layer(self.n_blocks, self.n_qubits, weights=self.fR4w*x)
+
+        
+        state = torch.zeros((batch_size, self.n_blocks, 1, 2**self.n_qubits, 1), dtype=torch.cdouble)
+        state[:, :, :, :, 0] = 2**(-self.n_qubits/2)
+        #state[:, :, :, 0, 0] = 1
+        
+        #state = self.H(state) #Implicitly included in state
+        
+        state = Ry_data0(state)
+        state = self.fR1(state)
+        state = self.cnot(state)
+        state = Ry_data2(state)
+        state = self.fR3(state)
+        state = self.Entangle(state)
+        state = Ry_data4(state)
+        state = self.fR5(state)
+                
+        return state, self.exp_val(state)
 
 class NeuralNetwork(nn.Module):
     def __init__(self, input_dim):

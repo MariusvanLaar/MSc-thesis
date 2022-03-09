@@ -26,7 +26,7 @@ import numpy as np
 import time
 from torch.utils.data import DataLoader
 from scipy.stats import median_abs_deviation
-from optimizers import SPSA
+from optimizers import SPSA, CMA
 
 
 
@@ -53,6 +53,7 @@ def train(model, optimizer, data_filename, batch_size, epochs, val_batch_size, n
             nonlocal loss
             
             optimizer.zero_grad()
+            
             state, output = model(x)
             pred = output.reshape(*y.shape)
             #accs.append((torch.round(pred)==y).sum().item()/batch_size)
@@ -64,9 +65,11 @@ def train(model, optimizer, data_filename, batch_size, epochs, val_batch_size, n
             return loss
 
         optimizer.step(loss_closure)
+        
                 
         for name, param in model.named_parameters():
             first_weight.append(param.data.view(-1)[0].item())
+            break
         
         losses.append(loss.item())
         
@@ -99,8 +102,13 @@ def plot_mean_std_best(data, y_label, min_max, title):
     plt.legend()    
     plt.title(title)
     plt.show()
+    
+def moving_average(a, n=5) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
 
-lrs = [0.05]
+lrs = [1]
 
 for lr in lrs:
     print()
@@ -109,21 +117,23 @@ for lr in lrs:
     batch_size = 10
     n_blocks = 2
     n_qubits = 5
-    epochs = 250
-    reps = 5
+    epochs = 50
+    reps = 2
     L = np.zeros((reps, epochs))
-    #Lv = np.zeros((reps, epochs//10 + 1))
+    Lv = np.zeros((reps, epochs//10 + 1))
     accuracies = np.zeros((reps, epochs//10 + 1))
     for rep in range(reps):
-        model = PQC_1A(n_blocks, n_qubits)
+        model = PQC_1Y(n_blocks, n_qubits)
         #model = NeuralNetwork(n_blocks*n_qubits)
-        optim = SPSA(model.parameters(), lr=lr)
+        optim = CMA(model.parameters(), lr=lr)
         L_t, L_v, accs, FW, Os = train(model, optim, "wdbc", batch_size, epochs, batch_size, n_blocks, n_qubits)
         plt.plot(L_t)
         #plt.show()
         L[rep] = np.array(L_t)
-        #Lv[rep] = np.array(L_v)
+        Lv[rep] = np.array(L_v)
         accuracies[rep] = np.array(accs)
+        #fw = np.array(FW)
+        #plt.plot(moving_average(abs(fw[:-1] - fw[1:])))
     plt.title(str(lr))
     plt.show()
     
