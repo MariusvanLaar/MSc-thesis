@@ -131,12 +131,7 @@ class TestModel(BaseModel):
 class PQC_1A(BaseModel):
     def __init__(self, n_blocks: int, n_qubits: int, weights_spread: float = 1, grant_init: bool = False):
         super().__init__(n_blocks, n_qubits, weights_spread, grant_init)   
-                
-        def copy_weights(control_seq, target_seq):
-            """Copies weights of one nn.Sequential layer into a target nn.Sequential layer and multiplies by a factor of -1"""
-            for u in range(len(control_seq)):
-                target_seq[u].weights = nn.Parameter(-control_seq[u].weights)
-        
+                       
         self.cnot = self.cnot_(0,1)
         # if grant_init:
         #     copy_weights(self.fR0, self.fR1)
@@ -206,6 +201,7 @@ class PQC_1Y(BaseModel):
         batch_size = x.shape[0]
         if x.shape[1] != self.n_blocks*self.n_qubits:
             x = torch.narrow(x, 1, 0, self.n_blocks*self.n_qubits)[:,self.randperm]
+        
         Ry_data = Ry_layer(self.n_blocks, self.n_qubits, weights=x)
 
         
@@ -372,12 +368,7 @@ class PQC_3D(BaseModel):
 class PQC_3B(BaseModel):
     def __init__(self, n_blocks: int, n_qubits: int, weights_spread: float = 1, grant_init: bool = False):
         super().__init__(n_blocks, n_qubits, weights_spread, grant_init)   
-                
-        def copy_weights(control_seq, target_seq):
-            """Copies weights of one nn.Sequential layer into a target nn.Sequential layer and multiplies by a factor of -1"""
-            for u in range(len(control_seq)):
-                target_seq[u].weights = nn.Parameter(-control_seq[u].weights)
-        
+       
         self.cnot = self.cnot_(0,1)
         # if grant_init:
         #     copy_weights(self.fR0, self.fR1)
@@ -424,6 +415,18 @@ class PQC_3B(BaseModel):
         state = self.fR5(state)
                 
         return state, self.exp_val(state)
+    
+class PQC_3Y(PQC_3B):
+    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: float = 1, grant_init: bool = False):
+        super().__init__(n_blocks, n_qubits, weights_spread, grant_init)
+        self.Entangle = Entangle_layer([], self.n_qubits)
+
+class PQC_3Z(PQC_3B):
+    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: float = 1, grant_init: bool = False):
+        super().__init__(n_blocks, n_qubits, weights_spread, grant_init)
+        self.Entangle = Entangle_layer([], self.n_qubits)
+        self.cnot = Entangle_layer([], self.n_qubits)
+        
 
 class NeuralNetwork(nn.Module):
     def __init__(self, input_dim):
@@ -431,9 +434,9 @@ class NeuralNetwork(nn.Module):
         self.flatten = nn.Flatten()
         self.input_dim = input_dim
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(input_dim, 100),
+            nn.Linear(input_dim, 50),
             nn.ReLU(),
-            nn.Linear(100, 50),
+            nn.Linear(50, 50),
             nn.ReLU(),
             nn.Linear(50, 1),
             nn.Sigmoid(),

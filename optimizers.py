@@ -70,15 +70,15 @@ class SPSA(Optimizer):
 class CMA(Optimizer):
     """Implements the CMA optimizer"""
     
-    def __init__(self, params, lr=1):
+    def __init__(self, params, lr=1, popsize=40, s0=pi/6, mu=0.2):
     
-        defaults = dict(bounds=[-pi, pi], popsize=40, CMA_cmean=lr)
+        defaults = dict(bounds=[-pi, pi], popsize=popsize, CMA_cmean=lr, CMA_mu=int(popsize*mu))
         
         super().__init__(params, defaults)
         
         x = torch.cat([x.view(-1) for x in list(self.param_groups)[0]["params"]]).detach()
         x0 = torch.zeros_like(x)
-        sigma0 = pi/2
+        sigma0 = s0
         
         self.cma_opt = cma.CMAEvolutionStrategy(x0, sigma0, inopts=defaults)
         

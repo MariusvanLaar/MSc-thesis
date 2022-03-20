@@ -6,15 +6,6 @@ Created on Mon Dec 27 10:10:55 2021
 """
 
 
-### TODO
-# Nice way to create the circuit model, perhaps use inheritance with a base class?
-# Dataset
-# Timing
-# Model can learn
-# Data reuploading
-
-
-
 from models import *
 import torch.nn as nn
 import torch
@@ -27,6 +18,7 @@ import time
 from torch.utils.data import DataLoader
 from scipy.stats import median_abs_deviation
 from optimizers import SPSA, CMA
+import pandas as pd
 
 
 
@@ -108,84 +100,41 @@ def moving_average(a, n=5) :
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
 
-lrs = [1]
+
+batch_size = 10
+n_blocks = 2
+n_qubits = 5
+epochs = 250
+reps = 5
+lrs = [0.05, 0.075, 0.1, 0.125]
+results = []
 
 for lr in lrs:
     print()
     print(lr)
     start = time.time()
-    batch_size = 10
-    n_blocks = 2
-    n_qubits = 5
-    epochs = 50
-    reps = 2
+
     L = np.zeros((reps, epochs))
     Lv = np.zeros((reps, epochs//10 + 1))
     accuracies = np.zeros((reps, epochs//10 + 1))
     for rep in range(reps):
-        model = PQC_1Y(n_blocks, n_qubits)
+        model = PQC_3B(n_blocks, n_qubits)
         #model = NeuralNetwork(n_blocks*n_qubits)
-        optim = CMA(model.parameters(), lr=lr)
-        L_t, L_v, accs, FW, Os = train(model, optim, "wdbc", batch_size, epochs, batch_size, n_blocks, n_qubits)
-        plt.plot(L_t)
+        optim = torch.optim.Adam(model.parameters(), lr=lr)
+        L_t, L_v, accs, FW, Os = train(model, optim, "wdbc", batch_size, epochs, batch_size*5, n_blocks, n_qubits)
+        #plt.plot(L_v)
         #plt.show()
         L[rep] = np.array(L_t)
         Lv[rep] = np.array(L_v)
         accuracies[rep] = np.array(accs)
         #fw = np.array(FW)
-        #plt.plot(moving_average(abs(fw[:-1] - fw[1:])))
-    plt.title(str(lr))
-    plt.show()
-    
-    print(np.median(accuracies[:,-1]))
+                
+    print(accuracies[:,-1])
 
-    
+    results.append({"lr":lr, "L_train":L, "L_val":Lv, "Acc":accuracies})
     # end = time.time()
-
-    # print("Median validation loss at final timestep is:")
-    # print(np.median(Lv[:,-1]))
-    # print("Median absolute deviation:")
-    # print(median_abs_deviation(Lv[:,-1]))
-    # plot_mean_std_best(L, "Loss", "min", str(lr))
-    # plot_mean_std_best(Lv, "Validation loss", "min", str(lr))
-    # plot_mean_std_best(accuracies, "Accuracy", "max", str(lr))
-    
     # print(end-start)
 
-
-
-
-
-
-
-# times = []
-# QUBITS = [*range(2, 7)]
-# for q in QUBITS:
-#     start = time.time()
-#     n_qubits = 5
-#     batch_size = 2 
-#     n_blocks = q
-#     model = BasicModel(batch_size, n_blocks, n_qubits)
-#     optim = torch.optim.Adam(model.parameters(), lr=0.05)
-#     L = train(model, optim, batch_size, n_blocks, n_qubits)
-#     end = time.time()
-#     times.append(end-start)
-    
-# plt.plot(QUBITS, times)
-# plt.xlabel("Batchsize")
-# plt.ylabel("Time, s")
-# plt.title("")
-#plt.savefig('QubitsTiming')
-    
-# n_qubits = 1
-# n_blocks = 2
-# batch_size = 1
-# weights = torch.ones((batch_size, n_blocks, 1, n_qubits,1,1)).cdouble()*pi
-# weights2 = torch.ones((batch_size, n_blocks, 1, n_qubits,1,1)).cdouble()*pi
-# weights2[0,0] = 0
-# model = TestModel(batch_size, n_blocks, n_qubits)
-# s, O = model([weights, weights2])
-# print(O)
 
 
 # psi, O = model("")

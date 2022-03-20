@@ -2,10 +2,10 @@
 # Hyperparameter optimization on breast cancer dataset
 
 
-lrs=(1)
+lrs=(2 5 10)
 opts=("cma")
 reps=("1" "2" "3" "4" "5")
-models=("PQC-1A" "PQC-1Y" "PQC-2A" "PQC-2Y")
+models=("PQC-1A" "PQC-1Y" "PQC-2A")
 
 for R in "${reps[@]}"; do
 for LR in "${lrs[@]}"; do

@@ -21,6 +21,7 @@ import data, models
 import pickle
 
 
+#train(model, optimizer, data_filename, batch_size, epochs, val_batch_size, n_blocks, n_qubits):
 def train(args):
     start = time.time()
         
@@ -39,7 +40,8 @@ def train(args):
     #Load data
     train_data = DataLoader(DataFactory(args.dataset, test_train = "train"),
                             batch_size=args.batch_size, shuffle=True)
-    test_data = DataLoader(DataFactory(args.dataset, test_train = "test"),
+    test_data_ = DataFactory(args.dataset, test_train = "test")
+    test_data = DataLoader(test_data_,
                             batch_size=args.val_batch_size, shuffle=True)
     
     #Create model
@@ -117,19 +119,29 @@ def train(args):
         losses[epoch] = loss.item()
         
         
-        if epoch % 10 == 0 or epoch == args.epochs-1:
+        if epoch % 10 == 0:
             with torch.no_grad():
                 x_val, y_val = next(iter(test_data))
                 state, output = model(x_val)
                 pred = output.reshape(*y_val.shape)
                 y_val = y_val.float()
-                accs[c] = (torch.round(pred)==y_val).sum().item()/args.val_batch_size
                 
                 val_loss = criterion(pred, y_val)
                 val_losses[c] = val_loss.item()
                 
+                accs[c] = (torch.round(pred)==y_val).sum().item()/args.val_batch_size
+                
                 c += 1
                 
+    n_final_samples = min(len(test_data_), 500)
+    final_data = DataLoader(test_data_, batch_size=n_final_samples, shuffle=True)
+    x_val, y_val = next(iter(final_data))
+    state, output = model(x_val)
+    pred = output.reshape(*y_val.shape)
+    y_val = y_val.float()
+    val_loss = criterion(pred, y_val)
+    val_losses[c] = val_loss.item()
+    accs[c] = (torch.round(pred)==y_val).sum().item()/n_final_samples
                 
     end = time.time()
     results = {"training_loss": losses, "validation_loss": val_losses,
