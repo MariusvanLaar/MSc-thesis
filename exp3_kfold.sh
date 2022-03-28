@@ -1,25 +1,26 @@
 #!/bin/sh
-# Attempt to train a 20 qubit model on the CIFAR08 dataset
+# Wdbc test for different model outputs
 
 
-lrs=(0.05)
+lrs=(0.01)
 opts=("adam")
-reps=("1" "2" "3" "4" "5")
-models=("ANN-01")
+reps=(2)
+models=("PQC-4A")
+
 
 for R in "${reps[@]}"; do
 for LR in "${lrs[@]}"; do
 for OPTIM in "${opts[@]}"; do
 for M in "${models[@]}"; do
 
-	python main_v3.py \
-	--tag "Exp2-"$R \
+	python main_v4.py \
+	--tag "Exp3" \
+	--seed $R \
 	train \
 	--optimizer $OPTIM \
 	--learning-rate $LR \
 	--model $M \
-	--dataset "CIFAR-PCA-08" \
-	--n-blocks 4
+	--dataset "wdbc" 
 		
 	echo "Run model $M with $R $LR $OPTIM"
 	sleep 5

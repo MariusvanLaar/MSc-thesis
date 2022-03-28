@@ -23,7 +23,7 @@ def krons(psi):
 
 class Rx_layer(nn.Module):
     "A layer applying the Rx gate"
-    def __init__(self, n_blocks: int, n_qubits: int, weights = None, weights_spread = 0):
+    def __init__(self, n_blocks: int, n_qubits: int, weights = None, weights_spread = [-np.pi/2,np.pi/2]):
         """
         weights: a tensor of rotation angles, if given from input data
         """
@@ -36,7 +36,7 @@ class Rx_layer(nn.Module):
 
         if weights is None:
             self.weights = nn.Parameter(torch.Tensor(1, self.n_blocks,1,self.n_qubits,1,1))
-            nn.init.uniform_(self.weights, -self.weights_spread, self.weights_spread)
+            nn.init.uniform_(self.weights, self.weights_spread[0], self.weights_spread[1])
             self.weights.cdouble()
         else:
             self.weights = weights
@@ -79,7 +79,7 @@ class Rx_layer(nn.Module):
     
 class Ry_layer(nn.Module):
     "A layer applying the Ry gate"
-    def __init__(self, n_blocks: int, n_qubits: int, weights = None, weights_spread = 0):
+    def __init__(self, n_blocks: int, n_qubits: int, weights = None, weights_spread = [-np.pi/2,np.pi/2]):
         """
         weights: a tensor of rotation angles, if given from input data
         """
@@ -92,7 +92,7 @@ class Ry_layer(nn.Module):
 
         if weights is None:
             self.weights = nn.Parameter(torch.Tensor(1, self.n_blocks,1,self.n_qubits,1,1))
-            nn.init.uniform_(self.weights, -self.weights_spread, self.weights_spread)
+            nn.init.uniform_(self.weights, self.weights_spread[0], self.weights_spread[1])
             self.weights.cdouble()
         else:
             self.weights = weights
@@ -135,7 +135,7 @@ class Ry_layer(nn.Module):
 
 class Rz_layer(nn.Module):
     "A layer applying the Rz gate"
-    def __init__(self, n_blocks: int, n_qubits: int, weights = None, weights_spread = np.pi/2):
+    def __init__(self, n_blocks: int, n_qubits: int, weights = None, weights_spread = [-np.pi/2,np.pi/2]):
         """
         weights: a tensor of rotation angles, if given from input data
         """
@@ -148,7 +148,7 @@ class Rz_layer(nn.Module):
 
         if weights is None:
             self.weights = nn.Parameter(torch.Tensor(1, self.n_blocks,1,self.n_qubits,1))
-            nn.init.uniform_(self.weights, -self.weights_spread, self.weights_spread)
+            nn.init.uniform_(self.weights, self.weights_spread[0], self.weights_spread[1])
             self.weights.cdouble()
         else:
             self.weights = weights
@@ -286,8 +286,8 @@ class Entangle_layer(nn.Module):
         elif q_idx == 0:
             post_I = torch.eye(2**(self.n_qubits-1))
             return torch.kron(U, post_I)
-        elif q_idx == self.n_qubits - 1:
-            pre_I = torch.eye(2**(q_idx))
+        elif q_idx == self.n_qubits - 1 or q_idx == -1:
+            pre_I = torch.eye(2**(self.n_qubits - 1))
             return torch.kron(pre_I, U)
         else:
             raise ValueError("Invalid qubit index given")    

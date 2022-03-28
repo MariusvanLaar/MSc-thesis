@@ -14,7 +14,12 @@ model_set = {
     "PQC-2Y": PQC_2Y,
     "PQC-3B": PQC_3B,
     "PQC-3D": PQC_3D,
+    "PQC-3E": PQC_3E,
+    "PQC-3V": PQC_3V,
+    "PQC-3W": PQC_3W,
+    "PQC-3X": PQC_3X,
     "PQC-3Y": PQC_3Y,
     "PQC-3Z": PQC_3Z,
+    "PQC-4A": PQC_4A,
     "ANN-01": NeuralNetwork,
     }
