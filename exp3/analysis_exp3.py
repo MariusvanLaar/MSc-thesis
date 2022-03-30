@@ -33,8 +33,8 @@ command_train = None
 
 opts=["adam"]
 lrs=[0.01]
-models=["PQC-4A"]
-reps=10
+models=["PQC-4A", "PQC-3W"]
+
 
 for i, MOD in enumerate(models):
     print()
@@ -42,20 +42,24 @@ for i, MOD in enumerate(models):
     for LR in lrs:
         fname = "../runs/Exp3*"+str(LR)+"-"+MOD+"*"
         files = glob.glob(fname)
+        
+        pickle_open = open(files[0], 'rb')
+        args = pickle.load(pickle_open)["args"]
+        kfolds=args.kfolds
         reps_found = len(files)
         v_acc = []
         
         
-        if len(files) != reps:
+        if len(files) != kfolds:
             print(MOD, LR, len(files))
-        Lv = np.zeros((reps_found,26))
+        Lv = np.zeros((reps_found,args.epochs//10 + 1))
         for i, f in enumerate(files):
             pickle_open = open(f, 'rb')
             run_dict = pickle.load(pickle_open)
             Lv[i] = run_dict["validation_loss"]
             v_acc.append(run_dict["validation_accuracy"][-1])
-            plt.plot(run_dict["training_loss"])
-            plt.show()
+            # plt.plot(run_dict["training_loss"])
+            # plt.show()
                
         print(np.round(np.mean(v_acc), 2), np.round(np.max(v_acc), 2))
         print(files[np.argmax(v_acc)])

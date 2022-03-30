@@ -366,7 +366,7 @@ class PQC_3B(BaseModel):
         return state, self.exp_val(state)
 
 class PQC_3E(BaseModel):
-    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False):
+    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
         super().__init__(n_blocks, n_qubits, weights_spread, grant_init)   
        
         self.cnot = self.cnot_(0,1)
@@ -384,10 +384,10 @@ class PQC_3E(BaseModel):
         self.Entangle = Entangle_layer([[[0,-1],[1,0]]],
                                         self.n_qubits)
 
-    def forward(self, x, verbose=False):
+    def forward(self, x):
         batch_size = x.shape[0]
         if x.shape[1] != self.n_blocks*self.n_qubits:
-            x = torch.narrow(x, 1, 0, self.n_blocks*self.n_qubits)[:,self.randperm]
+            x = torch.narrow(x, 1, 0, self.n_blocks*self.n_qubits)#[:,self.randperm]
 
         Ry_data0 = Ry_layer(self.n_blocks, self.n_qubits, weights=self.fR0w*x)
         Ry_data2 = Ry_layer(self.n_blocks, self.n_qubits, weights=self.fR2w*x)
@@ -400,57 +400,58 @@ class PQC_3E(BaseModel):
         #state = self.H(state) #Implicitly included in state
         
         state = Ry_data0(state)
-        if verbose:
-            braket = torch.matmul(state.conj().transpose(3,4), state)
-            print(torch.abs(braket)%1)
-            print(1-torch.abs(braket))
-            state /= torch.abs(braket)
-            braket = torch.matmul(state.conj().transpose(3,4), state)
-            print(torch.abs(braket)%1)
-            print(1-torch.abs(braket))
-            
         state = self.fR1(state)
-        if verbose:
-            braket = torch.matmul(state.conj().transpose(3,4), state)
-            print(torch.abs(braket)%1)
-            print(1-torch.abs(braket))
         state = self.cnot(state)
-        if verbose:
-            braket = torch.matmul(state.conj().transpose(3,4), state)
-            print(torch.abs(braket)%1)
-            print(1-torch.abs(braket))
         state = Ry_data2(state)
         state = self.fR3(state)
         state = self.Entangle(state)
-        if verbose:
-            braket = torch.matmul(state.conj().transpose(3,4), state)
-            print(torch.abs(braket)%1)
-            print(1-torch.abs(braket))
         state = self.cnot(state)
-        if verbose:
-            print(torch.abs(braket)%1)
-            print(1-torch.abs(braket))
-            state /= torch.abs(braket)
-            braket = torch.matmul(state.conj().transpose(3,4), state)
-            print(torch.abs(braket)%1)
-            print(1-torch.abs(braket))
         state = self.fR4(state)
         
                 
-        return state, self.exp_val(state, verbose)
+        return state, self.exp_val(state)
 
 class PQC_3V(PQC_3E):
-    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False):
+    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
         super().__init__(n_blocks, n_qubits, weights_spread, grant_init)
+        if "index" in kwargs.keys():
+            self.idx = kwargs["index"]
         self.Entangle = Entangle_layer([], self.n_qubits) #No Entanglement between blocks
         self.cnot = Entangle_layer([], self.n_qubits) #No cnots within blocks
         self.single_qubit_Z(-1)
         Observable_ = self.Observable.view(1,1,1,-1,1).repeat(1,n_blocks,1,1,1)
         Observable_[0,:-1,0] = torch.ones_like(Observable_, dtype=torch.cdouble)[0,:-1,0]
         self.Observable = Observable_ #Output is just Z on final qubit in block 2
+        
+    def forward(self, x):
+        batch_size = x.shape[0]
+        if x.shape[1] != self.n_blocks*self.n_qubits:
+            x = torch.narrow(x, 1, 0, self.n_blocks*self.n_qubits)[:,self.randperm]
+        #x = x[:,self.idx].view(-1,1)
+        Ry_data0 = Ry_layer(self.n_blocks, self.n_qubits, weights=self.fR0w*x)
+        Ry_data2 = Ry_layer(self.n_blocks, self.n_qubits, weights=self.fR2w*x)
+
+        
+        state = torch.zeros((batch_size, self.n_blocks, 1, 2**self.n_qubits, 1), dtype=torch.cdouble)
+        state[:, :, :, :, 0] = 2**(-self.n_qubits/2)
+        #state[:, :, :, 0, 0] = 1
+        
+        #state = self.H(state) #Implicitly included in state
+        
+        state = Ry_data0(state)
+        state = self.fR1(state)
+        state = self.cnot(state)
+        state = Ry_data2(state)
+        state = self.fR3(state)
+        state = self.Entangle(state)
+        state = self.cnot(state)
+        state = self.fR4(state)
+        
+                
+        return state, self.exp_val(state)
 
 class PQC_3W(PQC_3E):
-    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False):
+    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
         super().__init__(n_blocks, n_qubits, weights_spread, grant_init)
         self.Entangle = Entangle_layer([], self.n_qubits) #No Entanglement between blocks
         self.single_qubit_Z(-1)
@@ -459,20 +460,20 @@ class PQC_3W(PQC_3E):
         self.Observable = Observable_ #Output is just Z on final qubit in block 2
     
 class PQC_3X(PQC_3E):
-    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False):
+    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
         super().__init__(n_blocks, n_qubits, weights_spread, grant_init)
         self.Entangle = Entangle_layer([], self.n_qubits) #No Entanglement between blocks
         self.single_qubit_Z(-1) #Output is Z on final qubit in both blocks
         
 class PQC_3Y(PQC_3E):
-    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False):
+    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
         super().__init__(n_blocks, n_qubits, weights_spread, grant_init)
         #Product Z obeservable
         self.Entangle = Entangle_layer([], self.n_qubits) #No Entanglement between blocks
         self.cnot = Entangle_layer([], self.n_qubits) #No Entanglement in blocks
 
 class PQC_3Z(PQC_3E):
-    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False):
+    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
         super().__init__(n_blocks, n_qubits, weights_spread, grant_init)
         self.Entangle = Entangle_layer([[[0,-1],[1,0]]], self.n_qubits) #Single Entanglement between blocks
         self.single_qubit_Z(-1)
@@ -482,7 +483,7 @@ class PQC_3Z(PQC_3E):
         
         
 class PQC_4A(BaseModel):
-    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
         super().__init__(n_blocks, n_qubits, weights_spread, grant_init)  
         self.n_layers = n_layers
         self.var = nn.Sequential(*[self.YfRot() for _ in range(n_layers)])
@@ -535,5 +536,22 @@ class NeuralNetwork(nn.Module):
         out = nn.ReLU()(self.layer3(out))
         out = self.dropout(out)
         out = nn.Sigmoid()(self.layer4(out))
+        return 0, out
+    
+class LinearNetwork(nn.Module):
+    def __init__(self, input_dim, index):
+        super(LinearNetwork, self).__init__()
+        self.flatten = nn.Flatten()
+        self.input_dim = input_dim
+        self.layer1 = nn.Linear(1, 10)
+        self.layer2 = nn.Linear(10, 1)
+        self.idx = index
+
+    def forward(self, x):
+        if x.shape[1] >= self.input_dim:
+            x = torch.narrow(x, 1, 0, self.input_dim)
+        x = self.flatten(x).float()[:,self.idx].view(-1,1)
+        out = self.layer1(x)
+        out = self.layer2(out)
         return 0, out
 

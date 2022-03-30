@@ -20,6 +20,9 @@ from sklearn.model_selection import KFold
 
 
 def train(args):
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    
     dataclass = datasets.all_datasets[args.dataset]()
     kf = KFold(args.kfolds, shuffle=True, random_state=args.seed)
     for fold, (train_idx, test_idx) in enumerate(kf.split(dataclass.data)):
@@ -204,7 +207,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--epochs", metavar="EP", type=int, default=250, help="number of learning epochs"
     )
-    parser.add_argument( #Momentarily dummy arguement
+    parser.add_argument(
         "--seed",
         metavar="SEED",
         type=int,
@@ -214,6 +217,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--kfolds", metavar="KF", type=int, default=5, help="number of k-folds"
     )
+    
     subparsers = parser.add_subparsers(help="available commands")
 
     parser_train = subparsers.add_parser(
