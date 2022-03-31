@@ -3,28 +3,27 @@
 
 
 lrs=(0.05)
+reps=(1)
 opts=("adam")
-reps=(2 3)
 models=("PQC-4A")
 
 
-for L in $(seq 1 6); do
+#for R in $(seq 1 10); do
 for R in "${reps[@]}"; do
 for LR in "${lrs[@]}"; do
 for OPTIM in "${opts[@]}"; do
-
+for M in "${models[@]}"; do
 
 	python main_v4.py \
-	--tag "Exp3-"$R \
+	--tag "Exp2-"$R \
 	--seed $R \
-	--epochs 300 \
-	--kfolds 8 \
+	--epochs 400 \
+	--kfolds 10 \
 	train \
 	--optimizer $OPTIM \
 	--learning-rate $LR \
-	--model "PQC-4A" \
-	--dataset "wdbc" \
-	--n-layers $L
+	--model $M \
+	--dataset "wdbc"
 		
 	echo "Run model $M with $R $LR $OPTIM"
 	sleep 5

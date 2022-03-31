@@ -53,20 +53,27 @@ class Rx_layer(nn.Module):
             assert self.weights.shape[1] * self.weights.shape[3] == n_blocks*n_qubits, "Dimensions of weight tensor are incompatable. Check the input has the right batch size, block and qubit count"
         
 
-    def Rx(self):
-        a = (self.weights/2).cos()
-        b = (self.weights/2).sin()
+    def Rx(self, data=None):
         identity = torch.eye(2)
         off_identity = torch.Tensor([[0,1],[1,0]])
+        if data == None:
+            a = (self.weights/2).cos()
+            b = (self.weights/2).sin()
+        else:
+            assert data.shape[1] == self.weights.nelement(), "Dimension of data incompatible"
+            data = data.view((-1, *self.weights.shape[1:]))
+            a = (self.weights*data/2).cos()
+            b = (self.weights*data/2).sin()
+        
         return a*identity - 1j*b*off_identity
         
            
-    def forward(self, state):
+    def forward(self, state, data=None):
         """
         Take state to be a tensor with dimension batch x blocks x d&c x n-qubit state (2**n x 1) 
         """
         
-        Rxs = self.Rx().cdouble()
+        Rxs = self.Rx(data).cdouble()
         U = torch.zeros(*Rxs.shape[:3], 2**self.n_qubits, 2**self.n_qubits).cdouble()
         for batch_idx in range(U.shape[0]):
             for block_idx in range(self.n_blocks):
@@ -108,20 +115,26 @@ class Ry_layer(nn.Module):
                                 
             assert self.weights.shape[1] * self.weights.shape[3] == n_blocks*n_qubits, "Dimensions of weight tensor are incompatable. Check the input has the right batch size, block and qubit count"
 
-    def Ry(self):
-        a = (self.weights/2).cos()
-        b = (self.weights/2).sin()
+    def Ry(self, data=None):
         identity = torch.eye(2)
         off_identity = torch.Tensor([[0,-1],[1,0]])
+        if data == None:
+            a = (self.weights/2).cos()
+            b = (self.weights/2).sin()
+        else:
+            assert data.shape[1] == self.weights.nelement(), "Dimension of data incompatible"
+            data = data.view((-1, *self.weights.shape[1:]))
+            a = (self.weights*data/2).cos()
+            b = (self.weights*data/2).sin()
         return a*identity + b*off_identity
         
            
-    def forward(self, state):
+    def forward(self, state, data=None):
         """
         Take state to be a tensor with dimension batch x blocks x d&c x n-qubit state (2**n x 1) 
         """
         
-        Rys = self.Ry().cdouble()
+        Rys = self.Ry(data).cdouble()
         U = torch.zeros(*Rys.shape[:3], 2**self.n_qubits, 2**self.n_qubits).cdouble()
         for batch_idx in range(U.shape[0]):
             for block_idx in range(self.n_blocks):

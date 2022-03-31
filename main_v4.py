@@ -29,13 +29,13 @@ def train(args):
         X_tr, Y_tr = dataclass[train_idx]
         X_te, Y_te = dataclass[test_idx]
         
-        dataclass.fit(X_tr)
+        dataclass.fit(X_tr.copy())
         X_tr = dataclass.transform(X_tr)
         X_te = dataclass.transform(X_te)
                 
         train_set = FoldFactory(X_tr, Y_tr)
         test_set = FoldFactory(X_te, Y_te)
-        
+                
         train_(train_set, test_set, fold, args)
         
 
@@ -60,9 +60,8 @@ def train_(train_set, test_set, fold_id, args):
     #Load data
     train_data = DataLoader(train_set,
                             batch_size=args.batch_size, shuffle=True)
-    test_data_ = test_set
-    val_batch_size = min(len(test_data_), args.val_batch_size)
-    test_data = DataLoader(test_data_,
+    val_batch_size = min(len(test_set), args.val_batch_size)
+    test_data = DataLoader(test_set,
                             batch_size=val_batch_size, shuffle=True)
     
     #Create model
@@ -120,7 +119,7 @@ def train_(train_set, test_set, fold_id, args):
             optimizer.zero_grad()
             state, output = model(x)
             pred = output.reshape(*y.shape)
-            train_acc = (torch.round(pred)==y).sum().item()/args.batch_size
+            training_acc = (torch.round(pred)==y).sum().item()/args.batch_size
            
             try:
                 loss = criterion(pred, y)
@@ -131,7 +130,7 @@ def train_(train_set, test_set, fold_id, args):
             #Backpropagation
             if loss.requires_grad:
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+                #torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
             
             return loss
 
@@ -161,15 +160,16 @@ def train_(train_set, test_set, fold_id, args):
                 
                 c += 1
                 
-    n_final_samples = min(len(test_data_), 500)
-    final_data = DataLoader(test_data_, batch_size=n_final_samples)
-    x_val, y_val = next(iter(final_data))
-    state, output = model(x_val)
-    pred = output.reshape(*y_val.shape)
-    y_val = y_val.float()
-    val_loss = criterion(pred, y_val)
-    val_losses[c] = val_loss.item()
-    v_accs[c] = (torch.round(pred)==y_val).sum().item()/n_final_samples
+    with torch.no_grad():
+        n_final_samples = min(len(test_set), 500)
+        final_data = DataLoader(test_set, batch_size=n_final_samples)
+        x_val, y_val = next(iter(final_data))
+        state, output = model(x_val)
+        pred = output.reshape(*y_val.shape)
+        y_val = y_val.float()
+        val_loss = criterion(pred, y_val)
+        val_losses[c] = val_loss.item()
+        v_accs[c] = (torch.round(pred)==y_val).sum().item()/n_final_samples
                 
     end = time.time()
     results = {"training_loss": losses, "training_acc": t_accs,

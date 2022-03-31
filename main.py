@@ -39,6 +39,7 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
     kf = KFold(kfolds, shuffle=True, random_state=seed)
     results = []
     for fold, (train_idx, test_idx) in enumerate(kf.split(dataclass.data)):
+        print(fold)
         torch.manual_seed(seed+fold)
         np.random.seed(seed+fold)
         
@@ -52,12 +53,12 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
         #     param.data.flatten()[-1] = set_weights[fold]
         #     param.data.view(shp)
             
-        optimizer = optim(model.parameters(), lr=0.01)
+        optimizer = optim(model.parameters(), lr=0.1)
         
         X_tr, Y_tr = dataclass[train_idx]
         X_te, Y_te = dataclass[test_idx]
-
-        dataclass.fit(X_tr)
+        
+        dataclass.fit(X_tr.copy())
         X_tr = dataclass.transform(X_tr)
         X_te = dataclass.transform(X_te)
                 
@@ -99,7 +100,7 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
                 #Backpropagation
                 if loss.requires_grad:
                     loss.backward()
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+                    #torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
                     
                 return loss
     
@@ -160,6 +161,7 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
         accs.append((torch.round(pred)==y_val).sum().item()/n_final_samples)
         results.append({"args":args, "training_loss":losses, "training_acc":training_acc,
                         "val_loss":val_losses, "val_acc":accs, "model":model})
+        
     return results
 
 if __name__ == "__main__":
@@ -167,10 +169,10 @@ if __name__ == "__main__":
     n_blocks = 2
     n_qubits = 5
     n_layers = 5
-    epochs = 400
+    epochs = 200
     kfolds = 10
-    lrs = [0.01]
-    reps=10
+    lrs = [0.1]
+    reps=1
     results = []
     
     for lr in lrs:
@@ -180,7 +182,7 @@ if __name__ == "__main__":
     
         for rep in range(reps):
             #seed = int(time.time())%100000
-            seed = rep+144
+            seed = rep+110
             print(seed)
             torch.manual_seed(seed)
             np.random.seed(seed)
@@ -204,7 +206,8 @@ if __name__ == "__main__":
             #plt.xlabel("Epoch")
             plt.show()
             print([x["val_acc"][-1] for x in R])
-                    
+            print(np.mean([x["val_acc"][-1] for x in R]))
+            print(np.mean([x["training_acc"][-1] for x in R]))
         # end = time.time()
         # print(end-start)
 

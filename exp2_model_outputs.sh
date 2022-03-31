@@ -2,7 +2,7 @@
 # Wdbc test for different model outputs
 
 
-lrs=(0.01 0.05)
+lrs=(0.1 0.05)
 opts=("adam")
 models=("PQC-3V" "PQC-3W" "PQC-3X" "PQC-3Y" "PQC-3Z" "PQC-4A")
 
@@ -15,7 +15,7 @@ for M in "${models[@]}"; do
 	python main_v4.py \
 	--tag "Exp2-"$R \
 	--seed $R \
-	--epochs 400 \
+	--epochs 300 \
 	--kfolds 10 \
 	train \
 	--optimizer $OPTIM \

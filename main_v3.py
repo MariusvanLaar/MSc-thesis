@@ -22,7 +22,7 @@ def train(args):
     start = time.time()
         
     save_name = (
-        f"{args.tag}-{fold_id}-{args.dataset}-{args.optimizer}-{args.learning_rate}-{args.model}-{args.n_blocks}-{args.n_qubits}-"
+        f"{args.tag}-{args.dataset}-{args.optimizer}-{args.learning_rate}-{args.model}-{args.n_blocks}-{args.n_qubits}-"
         + time.strftime("%m-%d--%H-%M")
     )
     
@@ -199,7 +199,7 @@ if __name__ == "__main__":
         metavar="D",
         type=str,
         default="wdbc",
-        help=f"dataset; choose between {', '.join(data.all_datasets)}",
+        help=f"dataset; choose between {', '.join(datasets.all_datasets)}",
     )
     parser_train.add_argument(
         "--loss",

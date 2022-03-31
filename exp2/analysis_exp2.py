@@ -32,8 +32,8 @@ def plot_mean_std_best(data, y_label, min_max, title):
 command_train = None
 
 opts=["adam"]
-lrs=[0.01, 0.05]
-models=["PQC-3V"]#, "PQC-3W", "PQC-3X", "PQC-3Y", "PQC-3Z", "PQC-4A"]
+lrs=[0.05]
+models=["PQC-4A"]#["PQC-3V", "PQC-3W", "PQC-3X", "PQC-3Y", "PQC-3Z", "PQC-4A"]
 reps=10
 
 for i, MOD in enumerate(models):
@@ -43,18 +43,15 @@ for i, MOD in enumerate(models):
         std_vloss = []
         for LR in lrs:
             print(LR)
-            fname = "../runs/Exp2*"+OPT+"-"+str(LR)+"-"+MOD+"*"
+            fname = "../select_runs/Exp2*"+OPT+"-"+str(LR)+"-"+MOD+"*"
             files = glob.glob(fname)
-            
+            print(len(files))
             pickle_open = open(files[0], 'rb')
             args = pickle.load(pickle_open)["args"]
             kfolds=args.kfolds
             reps_found = len(files)
             v_acc = []
             
-            
-            if len(files) != kfolds:
-                print(OPT, MOD, LR, len(files))
             Lv = np.zeros((reps_found,args.epochs//10 + 1))
             for i, f in enumerate(files):
                 pickle_open = open(f, 'rb')
@@ -70,6 +67,12 @@ for i, MOD in enumerate(models):
         print(np.round(std_vloss, 2))
         print()
         
+        
+fname = "../select_runs/Exp2*"+"adam"+"-"+"0.05"+"-"+"PQC-4A"+"*"
+files = glob.glob(fname)
+print(len(files))
+pickle_open = open(files[0], 'rb')
+run = pickle.load(pickle_open)
         
 # lrs=[0.01, 0.05]
         
