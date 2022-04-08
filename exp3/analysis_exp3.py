@@ -14,33 +14,21 @@ from scipy.stats import median_abs_deviation as mad
 import pandas as pd
 
 
-def plot_mean_std_best(data, y_label, min_max, title):
-    plt.figure()
-    plt.ylabel(y_label)
-    plt.plot(data.mean(axis=0), label="Mean", alpha=0.75)
-    plt.fill_between(np.arange(len(data[0])), data.mean(axis=0)-data.std(axis=0), 
-                     data.mean(axis=0)+data.std(axis=0), alpha=0.4)
-    if min_max == 'min':
-        best_idx = np.argmin(data.mean(axis=1))
-    elif min_max == 'max':
-        best_idx = np.argmax(data.mean(axis=1))
-    plt.plot(data[best_idx], label="Best", alpha=0.75)
-    plt.legend()    
-    plt.title(title)
-    plt.show()
+
     
 command_train = None
 
 opts=["adam"]
-lrs=[0.01]
-models=["PQC-4A", "PQC-3W"]
+lrs=[0.05]
+models=["PQC-4A"]
 
-
-for i, MOD in enumerate(models):
+means, maxes, stds = [], [], []
+diffs, sq_diffs = [], []
+for n_lay in range(1,7):
     print()
-    print(MOD)
+    print(n_lay)
     for LR in lrs:
-        fname = "../runs/Exp3*"+str(LR)+"-"+MOD+"*"
+        fname = "../runs/Exp3*"+str(LR)+"-"+"PQC-4A"+"-"+str(n_lay)+"*"
         files = glob.glob(fname)
         
         pickle_open = open(files[0], 'rb')
@@ -48,24 +36,45 @@ for i, MOD in enumerate(models):
         kfolds=args.kfolds
         reps_found = len(files)
         v_acc = []
+        t_acc = []
         
         
-        if len(files) != kfolds:
-            print(MOD, LR, len(files))
+        # if len(files) != kfolds:
+            # print(n_lay, LR, len(files))
         Lv = np.zeros((reps_found,args.epochs//10 + 1))
         for i, f in enumerate(files):
             pickle_open = open(f, 'rb')
             run_dict = pickle.load(pickle_open)
             Lv[i] = run_dict["validation_loss"]
             v_acc.append(run_dict["validation_accuracy"][-1])
+            t_acc.append(run_dict["training_acc"][-1])
             # plt.plot(run_dict["training_loss"])
             # plt.show()
                
-        print(np.round(np.mean(v_acc), 2), np.round(np.max(v_acc), 2))
-        print(files[np.argmax(v_acc)])
-        print()
-    print()
+        # print(np.round(np.mean(v_acc), 4), np.round(np.max(v_acc), 4))
+        # print(files[np.argmax(v_acc)])
+        diffs.append(np.mean(np.array(t_acc)-np.array(v_acc)))
+        sq_diffs.append(np.mean((np.array(t_acc)-np.array(v_acc))**2))
+        means.append(np.mean(v_acc))
+        maxes.append(np.max(v_acc))
+        stds.append(np.std(v_acc))
+        #print()
+    # print()
 
+# colors = ["b","g","r","c","m","y",]
+# for j in range(6):
+#     plt.errorbar(means[j], maxes[j], yerr=stds[j], fmt="v", c=colors[j], label=j+1, alpha=0.8)
+# plt.legend(loc=(0.25,0.25))
+# plt.ylabel("Highest validation accuracy")
+# plt.xlabel("Mean validation accuracy")
+# plt.show()
+
+# plt.plot(np.arange(1,7), means)
+# plt.show()
+plt.plot(np.arange(1,7), diffs)
+plt.show()
+plt.plot(np.arange(1,7), sq_diffs)
+plt.show()
 
 
 # opts=["cma"]

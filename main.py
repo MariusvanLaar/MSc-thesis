@@ -39,7 +39,6 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
     kf = KFold(kfolds, shuffle=True, random_state=seed)
     results = []
     for fold, (train_idx, test_idx) in enumerate(kf.split(dataclass.data)):
-        print(fold)
         torch.manual_seed(seed+fold)
         np.random.seed(seed+fold)
         
@@ -53,7 +52,10 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
         #     param.data.flatten()[-1] = set_weights[fold]
         #     param.data.view(shp)
             
-        optimizer = optim(model.parameters(), lr=0.1)
+        if "lr" in kwargs.keys():
+            optimizer = optim(model.parameters(), lr=kwargs["lr"])
+        else:
+            optimizer = optim(model.parameters(), lr=0.05)
         
         X_tr, Y_tr = dataclass[train_idx]
         X_te, Y_te = dataclass[test_idx]
@@ -160,18 +162,19 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
         val_losses.append(val_loss.item())
         accs.append((torch.round(pred)==y_val).sum().item()/n_final_samples)
         results.append({"args":args, "training_loss":losses, "training_acc":training_acc,
-                        "val_loss":val_losses, "val_acc":accs, "model":model})
+                        "val_loss":val_losses, "val_acc":accs, "model":model,
+                        "final_preds":{"x_val":x_val, "pred":pred, "y_val":y_val}})
         
     return results
 
 if __name__ == "__main__":
-    batch_size = 20
+    batches = [10, 32, 64]
     n_blocks = 2
     n_qubits = 5
-    n_layers = 5
+    n_layers = 3
     epochs = 200
     kfolds = 10
-    lrs = [0.1]
+    lrs = [0.05]
     reps=1
     results = []
     
@@ -180,17 +183,18 @@ if __name__ == "__main__":
         print(lr)
         start = time.time()
     
-        for rep in range(reps):
+        for batch_size in batches:
             #seed = int(time.time())%100000
-            seed = rep+110
+            seed = 4321 #rep+110
             print(seed)
             torch.manual_seed(seed)
             np.random.seed(seed)
             
-            model = PQC_3V
+            model = PQC_4A
             #model = LinearNetwork(10, rep)
             optim = torch.optim.Adam
-            R = train(model, optim, "wdbc", batch_size, epochs, batch_size*5, kfolds, seed, n_blocks=2, n_qubits=5)
+            R = train(model, optim, "wdbc", batch_size, epochs, batch_size*5, kfolds, seed,
+                      n_blocks=n_blocks, n_qubits=n_qubits, n_layers=n_layers)
             results.append(R)
             for j in range(kfolds):
                 plt.plot(R[j]["val_acc"])
@@ -201,13 +205,13 @@ if __name__ == "__main__":
             plt.ylabel("Training Accuracy")
             plt.show()
             for j in range(kfolds):
-                plt.plot(R[j]["training_loss"])
+                plt.plot(R[0]["training_loss"])
             plt.ylabel("Training Loss")
             #plt.xlabel("Epoch")
             plt.show()
-            print([x["val_acc"][-1] for x in R])
-            print(np.mean([x["val_acc"][-1] for x in R]))
-            print(np.mean([x["training_acc"][-1] for x in R]))
+            # print([x["val_acc"][-1] for x in R])
+            # print(np.mean([x["val_acc"][-1] for x in R]))
+            # print(np.mean([x["training_acc"][-1] for x in R]))
         # end = time.time()
         # print(end-start)
 

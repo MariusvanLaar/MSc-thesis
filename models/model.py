@@ -417,6 +417,33 @@ class PQC_3V(PQC_3E):
         Observable_[0,:-1,0] = torch.ones_like(Observable_)[0,:-1,0]
         self.Observable = Observable_ #Output is just Z on final qubit in block 2
         
+    def forward(self, x):
+        batch_size = x.shape[0]
+        if x.shape[1] != self.n_blocks*self.n_qubits:
+            if hasattr(self, "idx"):
+                x = x[:,self.idx].view(-1,1)
+            else:
+                x = torch.narrow(x, 1, 0, self.n_blocks*self.n_qubits)[:,self.randperm]
+                
+        state = torch.zeros((batch_size, self.n_blocks, 1, 2**self.n_qubits, 1), dtype=torch.cdouble)
+        state[:, :, :, :, 0] = 2**(-self.n_qubits/2)
+        #state[:, :, :, 0, 0] = 1
+        
+        #state = self.H(state) #Implicitly included in state
+        
+        state = self.fR0w[0](state, x)
+        state = self.fR1(state)
+        state = self.cnot(state)
+        state = self.fR2w[0](state, x)
+        state = self.fR3(state)
+        state = self.Entangle(state)
+        state = self.cnot(state)
+        state = self.fR4(state)
+        
+                
+        return state, self.exp_val(state)
+        
+        
 
 class PQC_3W(PQC_3E):
     def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
@@ -456,9 +483,13 @@ class PQC_4A(BaseModel):
         self.n_layers = n_layers
         self.var = nn.Sequential(*[self.YfRot() for _ in range(n_layers)])
         self.dru = nn.Sequential(*[self.YfRot(weights_spread=[1,1]) for _ in range(n_layers)])
-        self.cnot = self.cnot_(0,1)
+        self.cnot = nn.Sequential(*[self.cnot_(0,1) for offset in range(n_layers)])
         self.fvar = self.AfRot()
         self.Entangle = Entangle_layer([[[0,-1],[1,0]]], self.n_qubits) #Single Entanglement between blocks
+        self.single_qubit_Z(-1)
+        
+    def decide_ent(self, layer):
+        return layer + 1 == self.n_layers//2
 
     def forward(self, x):
         batch_size = x.shape[0]
@@ -470,17 +501,30 @@ class PQC_4A(BaseModel):
         state[:, :, :, 0, 0] = 1
         
         for l in range(self.n_layers):
-            #Rx_data = Rx_layer(self.n_blocks, self.n_qubits, weights=self.dru[l]*x)
             state = self.dru[l][0](state, data=x)
             state = self.var[l](state)
-            state = self.cnot(state)
+            state = self.cnot[l](state)
             
-            if l == self.n_layers//2:
+            if self.decide_ent(l):
                 state = self.Entangle(state)
             
         state = self.fvar(state)
         
         return state, self.exp_val(state)
+    
+class PQC_4B(PQC_4A):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
+        super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs)
+        
+    def decide_ent(self, layer):
+        return True
+    
+class PQC_4C(PQC_4A):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
+        super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs)
+        
+    def decide_ent(self, layer):
+        return False
         
 
 class NeuralNetwork(nn.Module):

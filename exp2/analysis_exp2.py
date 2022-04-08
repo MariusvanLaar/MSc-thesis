@@ -32,8 +32,8 @@ def plot_mean_std_best(data, y_label, min_max, title):
 command_train = None
 
 opts=["adam"]
-lrs=[0.05]
-models=["PQC-4A"]#["PQC-3V", "PQC-3W", "PQC-3X", "PQC-3Y", "PQC-3Z", "PQC-4A"]
+lrs=[0.05, 0.1]
+models=["PQC-3V", "PQC-3W", "PQC-3X", "PQC-3Y", "PQC-3Z", "PQC-4A"]
 reps=10
 
 for i, MOD in enumerate(models):
@@ -43,7 +43,7 @@ for i, MOD in enumerate(models):
         std_vloss = []
         for LR in lrs:
             print(LR)
-            fname = "../select_runs/Exp2*"+OPT+"-"+str(LR)+"-"+MOD+"*"
+            fname = "../runs/Exp2*"+OPT+"-"+str(LR)+"-"+MOD+"*"
             files = glob.glob(fname)
             print(len(files))
             pickle_open = open(files[0], 'rb')
@@ -51,6 +51,7 @@ for i, MOD in enumerate(models):
             kfolds=args.kfolds
             reps_found = len(files)
             v_acc = []
+            t_acc = []
             
             Lv = np.zeros((reps_found,args.epochs//10 + 1))
             for i, f in enumerate(files):
@@ -58,21 +59,24 @@ for i, MOD in enumerate(models):
                 run_dict = pickle.load(pickle_open)
                 Lv[i] = run_dict["validation_loss"]
                 v_acc.append(run_dict["validation_accuracy"][-1])
+                t_acc.append(run_dict["training_acc"][-1])
             std_vloss.append(np.std(Lv[:,-1]))
             #plt.show()
-            print(np.round(v_acc, decimals=3))
+            #print(np.round(v_acc, decimals=3))
             print(np.round(np.mean(v_acc), 2), np.round(np.max(v_acc), 2))
+            print(np.round(np.mean(t_acc), 2), np.round(np.std(t_acc), 2))
+            print(np.round(np.mean(np.array(t_acc) - np.array(v_acc)),4))
             print(files[np.argmax(v_acc)])
             print()
         print(np.round(std_vloss, 2))
         print()
         
         
-fname = "../select_runs/Exp2*"+"adam"+"-"+"0.05"+"-"+"PQC-4A"+"*"
-files = glob.glob(fname)
-print(len(files))
-pickle_open = open(files[0], 'rb')
-run = pickle.load(pickle_open)
+# fname = "../select_runs/Exp2*"+"adam"+"-"+"0.05"+"-"+"PQC-4A"+"*"
+# files = glob.glob(fname)
+# print(len(files))
+# pickle_open = open(files[0], 'rb')
+# run = pickle.load(pickle_open)
         
 # lrs=[0.01, 0.05]
         

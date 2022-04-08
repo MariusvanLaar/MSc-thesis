@@ -17,38 +17,44 @@ from optimizers import SPSA, CMA
 import datasets, models
 import pickle
 from sklearn.model_selection import KFold
+import glob, os
 
 
 def train(args):
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+    
+    torch.manual_seed(args.seed+123456789) #To create a large number with a good balance 
+    np.random.seed(args.seed+123456789) # of 0 and 1 bits
     
     dataclass = datasets.all_datasets[args.dataset]()
     kf = KFold(args.kfolds, shuffle=True, random_state=args.seed)
     for fold, (train_idx, test_idx) in enumerate(kf.split(dataclass.data)):
-        X_tr, Y_tr = dataclass[train_idx]
-        X_te, Y_te = dataclass[test_idx]
-        
-        dataclass.fit(X_tr.copy())
-        X_tr = dataclass.transform(X_tr)
-        X_te = dataclass.transform(X_te)
-                
-        train_set = FoldFactory(X_tr, Y_tr)
-        test_set = FoldFactory(X_te, Y_te)
-                
-        train_(train_set, test_set, fold, args)
+        save_name = f"{args.tag}-{fold}-{args.dataset}-{args.optimizer}-{args.learning_rate}-" \
+        f"{args.model}-{args.n_layers}-{args.n_blocks}-{args.n_qubits}-{args.seed}-*"
+        if len(glob.glob("runs"+os.sep+save_name)) == 0:
+            X_tr, Y_tr = dataclass[train_idx]
+            X_te, Y_te = dataclass[test_idx]
+            
+            dataclass.fit(X_tr.copy())
+            X_tr = dataclass.transform(X_tr)
+            X_te = dataclass.transform(X_te)
+                    
+            train_set = FoldFactory(X_tr, Y_tr)
+            test_set = FoldFactory(X_te, Y_te)
+                    
+            train_(train_set, test_set, fold, args)
         
 
 def train_(train_set, test_set, fold_id, args):
     start = time.time()
         
     save_name = (
-        f"{args.tag}-{fold_id}-{args.dataset}-{args.optimizer}-{args.learning_rate}-{args.model}-{args.n_layers}-{args.n_blocks}-{args.n_qubits}-"
+        f"{args.tag}-{fold_id}-{args.dataset}-{args.optimizer}-{args.learning_rate}-" 
+        + f"{args.model}-{args.n_layers}-{args.n_blocks}-{args.n_qubits}-{args.seed}-"
         + time.strftime("%m-%d--%H-%M")
     )
     
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+    torch.manual_seed(args.seed+fold_id+123456789)
+    np.random.seed(args.seed+fold_id+123456789)
     
     #Set loss function
     if args.loss == "BCE":
