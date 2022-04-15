@@ -37,7 +37,7 @@ class Rx_layer(nn.Module):
         if weights is None:
             self.weights = nn.Parameter(torch.Tensor(1, self.n_blocks,1,self.n_qubits,1,1))
             nn.init.uniform_(self.weights, self.weights_spread[0], self.weights_spread[1])
-            self.weights.cdouble()
+            self.weights.cfloat()
         else:
             self.weights = weights
             if self.weights.shape[1] == n_blocks*n_qubits:
@@ -73,8 +73,8 @@ class Rx_layer(nn.Module):
         Take state to be a tensor with dimension batch x blocks x d&c x n-qubit state (2**n x 1) 
         """
         
-        Rxs = self.Rx(data).cdouble()
-        U = torch.zeros(*Rxs.shape[:3], 2**self.n_qubits, 2**self.n_qubits).cdouble()
+        Rxs = self.Rx(data).cfloat()
+        U = torch.zeros(*Rxs.shape[:3], 2**self.n_qubits, 2**self.n_qubits).cfloat()
         for batch_idx in range(U.shape[0]):
             for block_idx in range(self.n_blocks):
                 U[batch_idx, block_idx, :] = krons(Rxs[batch_idx, block_idx, 0])
@@ -100,7 +100,7 @@ class Ry_layer(nn.Module):
         if weights is None:
             self.weights = nn.Parameter(torch.Tensor(1, self.n_blocks,1,self.n_qubits,1,1))
             nn.init.uniform_(self.weights, self.weights_spread[0], self.weights_spread[1])
-            self.weights.cdouble()
+            self.weights.cfloat()
         else:
             self.weights = weights
             if self.weights.shape[1] == n_blocks*n_qubits:
@@ -134,8 +134,8 @@ class Ry_layer(nn.Module):
         Take state to be a tensor with dimension batch x blocks x d&c x n-qubit state (2**n x 1) 
         """
         
-        Rys = self.Ry(data).cdouble()
-        U = torch.zeros(*Rys.shape[:3], 2**self.n_qubits, 2**self.n_qubits).cdouble()
+        Rys = self.Ry(data).cfloat()
+        U = torch.zeros(*Rys.shape[:3], 2**self.n_qubits, 2**self.n_qubits).cfloat()
         for batch_idx in range(U.shape[0]):
             for block_idx in range(self.n_blocks):
                 U[batch_idx, block_idx, :] = krons(Rys[batch_idx, block_idx, 0])
@@ -162,7 +162,7 @@ class Rz_layer(nn.Module):
         if weights is None:
             self.weights = nn.Parameter(torch.Tensor(1, self.n_blocks,1,self.n_qubits,1))
             nn.init.uniform_(self.weights, self.weights_spread[0], self.weights_spread[1])
-            self.weights.cdouble()
+            self.weights.cfloat()
         else:
             self.weights = weights
             if self.weights.shape[1] == n_blocks*n_qubits:
@@ -187,8 +187,8 @@ class Rz_layer(nn.Module):
         """
         Take state to be a tensor with dimension batch x blocks x d&c x n_qubit state (2**n_qubits_perblock x 1) 
         """
-        Rzs = self.Rz().cdouble()
-        U = torch.zeros(*Rzs.shape[:3], 2**self.n_qubits, 1).cdouble()
+        Rzs = self.Rz().cfloat()
+        U = torch.zeros(*Rzs.shape[:3], 2**self.n_qubits, 1).cfloat()
         for batch_idx in range(U.shape[0]):
             for block_idx in range(self.n_blocks):
                 U[batch_idx, block_idx, :] = krons(Rzs[batch_idx, block_idx, 0]).reshape(-1,1) #Reshape because using flattend matrix
@@ -202,7 +202,7 @@ class Hadamard_layer(nn.Module):
         super().__init__()
         
         self.H = torch.Tensor([[1, 1], [1, -1]]).reshape(1,2,2)/(2**0.5)
-        self.H = krons(self.H.repeat(n_qubits,1,1)).cdouble()
+        self.H = krons(self.H.repeat(n_qubits,1,1)).cfloat()
         
     def forward(self, state):
         return torch.matmul(self.H, state)
@@ -255,7 +255,7 @@ class CNOT_layer(nn.Module):
     
     def forward(self, state):
         for pair in self.pairs:
-            CNOT = self.gen_CNOT(pair).cdouble()
+            CNOT = self.gen_CNOT(pair).cfloat()
             state = torch.matmul(CNOT, state)
         
         return state
@@ -275,11 +275,11 @@ class Entangle_layer(nn.Module):
         # qubit pairs should be a list of tuples of the form ((block_idx1, qubit_idx1), (block_idx2, qubit_idx2))
         # the first tuple contains the control qubit coordinate, and the second tuple the target qubit coordinate
         
-        self.I = torch.eye(2).cdouble()
+        self.I = torch.eye(2).cfloat()
         self.H = torch.Tensor([[1, 1], [1, -1]])/(2**0.5)
-        self.H = self.H.cdouble()
-        self.Z = torch.Tensor([[1,0],[0,-1]]).cdouble()
-        self.S = torch.Tensor([[1,0],[0,1]]).cdouble()
+        self.H = self.H.cfloat()
+        self.Z = torch.Tensor([[1,0],[0,-1]]).cfloat()
+        self.S = torch.Tensor([[1,0],[0,1]]).cfloat()
         self.S[1,1] = -1j #This is actually S_conj just to save an unneccesary .conj() operation
 
         

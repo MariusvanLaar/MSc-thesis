@@ -25,7 +25,8 @@ def train(args):
     torch.manual_seed(args.seed+123456789) #To create a large number with a good balance 
     np.random.seed(args.seed+123456789) # of 0 and 1 bits
     
-    dataclass = datasets.all_datasets[args.dataset]()
+    n_features = args.n_blocks*args.n_qubits
+    dataclass = datasets.all_datasets[args.dataset](n_features)
     kf = KFold(args.kfolds, shuffle=True, random_state=args.seed)
     for fold, (train_idx, test_idx) in enumerate(kf.split(dataclass.data)):
         save_name = f"{args.tag}-{fold}-{args.dataset}-{args.optimizer}-{args.learning_rate}-" \
@@ -107,8 +108,9 @@ def train_(train_set, test_set, fold_id, args):
             lr=args.learning_rate,
             )
     
-    losses = np.zeros((args.epochs))
-    t_accs = np.zeros((args.epochs))
+    losses = np.zeros((args.epochs+1))
+    t_accs = np.zeros((args.epochs+1))
+    gradient_1, gradient_2 = np.zeros((args.epochs)), np.zeros((args.epochs))
     val_losses = np.zeros((args.epochs//10 + 1))
     v_accs = np.zeros((args.epochs//10 + 1))
     c = 0
@@ -123,7 +125,7 @@ def train_(train_set, test_set, fold_id, args):
             nonlocal training_acc
             
             optimizer.zero_grad()
-            state, output = model(x)
+            output = model(x)
             pred = output.reshape(*y.shape)
             training_acc = (torch.round(pred)==y).sum().item()/args.batch_size
            
@@ -136,18 +138,14 @@ def train_(train_set, test_set, fold_id, args):
             #Backpropagation
             if loss.requires_grad:
                 loss.backward()
-                #torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
             
             return loss
 
         optimizer.step(loss_closure)
         
-        # for name, param in model.named_parameters():
-        #     if param.requires_grad:
-        #         # print(name, param.data)
-        #         # print(param.data[0,0,0,0,0].item())
-        #         first_weight.append(param.data[0,0,0,0,0].item())
-        
+        gradient_1[epoch] = model.var[0][0].weights.grad.flatten()[-1].item()
+        gradient_2[epoch] = model.var[-1][0].weights.grad.flatten()[-1].item()
         losses[epoch] = loss.item()
         t_accs[epoch] = training_acc
         
@@ -155,7 +153,7 @@ def train_(train_set, test_set, fold_id, args):
         if epoch % 10 == 0:
             with torch.no_grad():
                 x_val, y_val = next(iter(test_data))
-                state, output = model(x_val)
+                output = model(x_val)
                 pred = output.reshape(*y_val.shape)
                 y_val = y_val.float()
                 
@@ -167,10 +165,21 @@ def train_(train_set, test_set, fold_id, args):
                 c += 1
                 
     with torch.no_grad():
+        n_final_t_samples = min(len(train_set), 500)
+        final_t_data = DataLoader(train_set, batch_size=n_final_t_samples)                
+        x, y = next(iter(final_t_data))
+        output = model(x)
+        pred = output.reshape(*y.shape)
+        y = y.float()
+        loss = criterion(pred, y)
+        losses[-1] = loss.item()
+        t_accs[-1] = (torch.round(pred)==y).sum().item()/n_final_t_samples 
+        
+        
         n_final_samples = min(len(test_set), 500)
         final_data = DataLoader(test_set, batch_size=n_final_samples)
         x_val, y_val = next(iter(final_data))
-        state, output = model(x_val)
+        output = model(x_val)
         pred = output.reshape(*y_val.shape)
         y_val = y_val.float()
         val_loss = criterion(pred, y_val)
@@ -182,6 +191,7 @@ def train_(train_set, test_set, fold_id, args):
                "validation_loss": val_losses,
                "validation_accuracy": v_accs, "model_state_dict": model.state_dict(),
                "args": args, "timer": end-start,
+               "gradient1": gradient_1, "gradient2": gradient_2,
                }
     pickling = open("runs/"+save_name+".pkl", "wb")
     pickle.dump(results, pickling)
@@ -246,7 +256,7 @@ if __name__ == "__main__":
         help="loss function, choose from BCE, MSE or CE",
     )
     parser_train.add_argument(
-        "--batch-size", metavar="B", type=int, default=10, help="batch size",
+        "--batch-size", metavar="B", type=int, default=32, help="batch size",
     )
     parser_train.add_argument(
         "--optimizer",
