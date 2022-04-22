@@ -83,26 +83,6 @@ class BaseModel(nn.Module):
         Observ = Observ.repeat(self.n_qubits,1,1)
         self.Observable = krons(Observ)
 
-    def exp_val_(self, state):
-        batch_size = state.shape[0]
-        O = torch.zeros(batch_size, self.n_blocks, state.shape[2], state.shape[2]).cfloat()
-        a0 = torch.complex(torch.Tensor([1,0]), torch.Tensor([0,-1])) / ((2**0.5)*(-1j)**0.5)
-        alpha = torch.Tensor([1]).cfloat()
-        for j in range(int(math.log2(state.shape[2]))):
-            alpha = torch.kron(alpha, a0)
-        #alpha = alpha.conj().view(-1,1)*alpha.view(1,-1)
-        for b in range(self.n_blocks): #Loop over blocks
-            for d1 in range(state.shape[2]): #Loop over d&c dim
-                for d2 in range(d1, state.shape[2]): #Loop over d&c dim
-                    state_conj = state[:, b, d1].transpose(1,2).conj()
-                    inn_prod = torch.matmul(state_conj, self.Observable*state[:,b,d2]).view(-1)
-                    O[:, b, d1, d2] = inn_prod
-        O = O + torch.triu(O, diagonal=1).conj().transpose(2,3)
-        O = O.prod(dim=1)
-        O = O*alpha
-        O = O.sum(dim=[1,2])
-           
-        return torch.clamp(0.5*(O.real.float()+1), min=0, max=1)
         
     def exp_val(self, state):
         batch_size = state.shape[0]
@@ -117,9 +97,39 @@ class BaseModel(nn.Module):
             inn_prods = torch.matmul(state_conj, self.Observable*state)
             coefs = (a_conj*alpha).view(1,-1)
             Os = inn_prods.prod(dim=1).view(batch_size, -1) * coefs
-            
             O += Os.sum(dim=1)
-           
         return torch.clamp(0.5*(O.real.float()+1), min=0, max=1)
     #Clamp is necessary for over or underflow errors leading to values just above 1 or below 0 (on the scale 0f e-08)
-    #Can be a source of bugs though, especially when introducing new gate types.
+    #Can be a source of bugs though, especially when introducing new features "upstream" the clamp should be disabled.
+    
+    def exp_val_(self, state):
+        """
+        Alternative computation for calculating the expectation value.
+        This function is MUCH slower than the above but uses less inplace memory.
+        It uses a loop over the batch size and over the divide and conquer dimension
+        in an attempt to be more memory efficient.
+        Unfortunately for gradient based methods the computational graph is still too large
+        and causes a crash for the same system sizes as the above function. 
+        Only for gradient free optimization and very large systems will this function when the above won't.
+        At this point however the computation will be unreasonably slow anyway so consider this function 
+        more of a christmas decoration.
+        """
+        batch_size = state.shape[0]
+        O = torch.zeros(batch_size, self.n_blocks, state.shape[2], state.shape[2]).cfloat()
+        a0 = torch.complex(torch.Tensor([1,0]), torch.Tensor([0,-1])) / ((2**0.5)*(-1j)**0.5)
+        alpha = torch.Tensor([1]).cfloat()
+        for j in range(int(math.log2(state.shape[2]))):
+            alpha = torch.kron(alpha, a0)
+        alpha = alpha.conj().view(-1,1)*alpha.view(1,-1)
+        for b in range(batch_size): #Loop over blocks
+            for d1 in range(state.shape[2]): #Loop over d&c dim
+                for d2 in range(d1, state.shape[2]): #Loop over d&c dim
+                    state_conj = state[b, :, d1].transpose(1,2).conj()
+                    inn_prod = torch.matmul(state_conj, self.Observable*state[b,:,d2]).view(-1)
+                    O[b, :, d1, d2] = inn_prod
+        O = O + torch.triu(O, diagonal=1).conj().transpose(2,3)
+        O = O.prod(dim=1)
+        O = O*alpha
+        O = O.sum(dim=[1,2])
+           
+        return torch.clamp(0.5*(O.real.float()+1), min=0, max=1)

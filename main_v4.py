@@ -189,7 +189,7 @@ def train_(train_set, test_set, fold_id, args):
     end = time.time()
     results = {"training_loss": losses, "training_acc": t_accs,
                "validation_loss": val_losses,
-               "validation_accuracy": v_accs, "model_state_dict": model.state_dict(),
+               "validation_accuracy": v_accs,
                "args": args, "timer": end-start,
                "gradient1": gradient_1, "gradient2": gradient_2,
                }

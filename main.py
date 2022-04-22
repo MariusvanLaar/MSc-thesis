@@ -32,19 +32,21 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
     torch.manual_seed(seed+123456789)
     np.random.seed(seed+123456789)
 
+    n_features = kwargs["n_blocks"]*kwargs["n_qubits"]
     criterion = nn.BCELoss()
-    dataclass = datasets.all_datasets[data_filename]()
+    dataclass = datasets.all_datasets[data_filename](n_features)
     kf = KFold(kfolds, shuffle=True, random_state=seed)
     results = []
     for fold, (train_idx, test_idx) in enumerate(kf.split(dataclass.data)):
+        print(fold)
         torch.manual_seed(seed+fold)
         np.random.seed(seed+fold)
         
         if "index" in kwargs.keys():
-            model = args["model"](kwargs["n_blocks"], kwargs["n_qubits"], index=kwargs["index"])
+            model = args["model"](kwargs["n_blocks"], kwargs["n_qubits"], kwargs["n_layers"], index=kwargs["index"])
         else:
-            model = args["model"](kwargs["n_blocks"], kwargs["n_qubits"])
-        
+            model = args["model"](kwargs["n_blocks"], kwargs["n_qubits"], kwargs["n_layers"])
+                    
         # for param in model.parameters():
         #     shp = param.data.shape
         #     param.data.flatten()[-1] = set_weights[fold]
@@ -79,43 +81,42 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
         training_acc = []
         gradient_1, gradient_2 = [], []
         outputs = []
-        with torch.autograd.set_detect_anomaly(True):
-            for epoch in range(epochs):
-                # if epoch == 0:
-                #     for name, param in model.named_parameters():
-                #         print(name, param)
-                x, y = next(iter(train_data))
-                y = y.float()
-                loss = None
-                train_acc = None
-                def loss_closure():
-                    nonlocal loss
-                    nonlocal train_acc
-                    
-                    optimizer.zero_grad()
-                    
-                    output = model(x)
-                    pred = output.reshape(*y.shape)
-                    train_acc = (torch.round(pred)==y).sum().item()/batch_size
-                    loss = criterion(pred, y)
-                    #Backpropagation
-                    if loss.requires_grad:
-                        loss.backward()
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
-                        
-                    return loss
-        
-                optimizer.step(loss_closure)
-    
-                gradient_1.append(model.var[0][0].weights.grad.flatten()[-1].item())
-                gradient_2.append(model.var[-1][0].weights.grad.flatten()[-1].item())
-                training_acc.append(train_acc)
-                losses.append(loss.item())
+        for epoch in range(epochs):
+            # if epoch == 0:
+            #     for name, param in model.named_parameters():
+            #         print(name, param)
+            x, y = next(iter(train_data))
+            y = y.float()
+            loss = None
+            train_acc = None
+            def loss_closure():
+                nonlocal loss
+                nonlocal train_acc
                 
-                if epoch % 10 == 0:            
+                optimizer.zero_grad()
+                
+                output = model(x)
+                pred = output.reshape(*y.shape)
+                train_acc = (torch.round(pred)==y).sum().item()/batch_size
+                loss = criterion(pred, y)
+                #Backpropagation
+                if loss.requires_grad:
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
                     
+                return loss
+    
+            optimizer.step(loss_closure)
+
+            gradient_1.append(model.var[0][0].weights.grad.flatten()[-1].item())
+            gradient_2.append(model.var[-1][0].weights.grad.flatten()[-1].item())
+            training_acc.append(train_acc)
+            losses.append(loss.item())
+            
+            if epoch % 10 == 0:            
+                with torch.no_grad():
                     x_val, y_val = next(iter(test_data))
-                    state, output = model(x_val)
+                    output = model(x_val)
                     pred = output.reshape(*y_val.shape)
                     y_val = y_val.float()
                     outputs.append((y_val*pred)[0].item())
@@ -135,44 +136,45 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
                     
                     #print(epoch, val_loss.item())
                     val_losses.append(val_loss.item())
-           
-        n_final_t_samples = min(len(train_set), 500)
-        final_t_data = DataLoader(train_set, batch_size=n_final_t_samples)                
-        x, y = next(iter(final_t_data))
-        output = model(x)
-        pred = output.reshape(*y.shape)
-        y = y.float()
-        loss = criterion(pred, y)
-        losses.append(loss.item())
-        training_acc.append((torch.round(pred)==y).sum().item()/n_final_t_samples)
-
-        n_final_samples = min(len(test_set), 500)
-        final_data = DataLoader(test_set, batch_size=n_final_samples)                
-        x_val, y_val = next(iter(final_data))
-        output = model(x_val)
-        pred = output.reshape(*y_val.shape)
-        y_val = y_val.float()
-        
-        val_loss = criterion(pred, y_val)
-        val_losses.append(val_loss.item())
-        
-        accs.append((torch.round(pred)==y_val).sum().item()/n_final_samples)
+                    
+        with torch.no_grad():
+            n_final_t_samples = min(len(train_set), 500)
+            final_t_data = DataLoader(train_set, batch_size=n_final_t_samples)                
+            x, y = next(iter(final_t_data))
+            output = model(x)
+            pred = output.reshape(*y.shape)
+            y = y.float()
+            loss = criterion(pred, y)
+            losses.append(loss.item())
+            training_acc.append((torch.round(pred)==y).sum().item()/n_final_t_samples)
+    
+            n_final_samples = min(len(test_set), 500)
+            final_data = DataLoader(test_set, batch_size=n_final_samples)                
+            x_val, y_val = next(iter(final_data))
+            output = model(x_val)
+            pred = output.reshape(*y_val.shape)
+            y_val = y_val.float()
+            
+            val_loss = criterion(pred, y_val)
+            val_losses.append(val_loss.item())
+            
+            accs.append((torch.round(pred)==y_val).sum().item()/n_final_samples)
         results.append({"args":args, "training_loss":losses, "training_acc":training_acc,
-                        "val_loss":val_losses, "val_acc":accs, "model":model,
+                        "val_loss":val_losses, "val_acc":accs,
                         "final_preds":{"x_val":x_val, "pred":pred, "y_val":y_val},
                         "gradient1": gradient_1, "gradient2": gradient_2})
         
     return results
 
 if __name__ == "__main__":
-    batch_size = 16
+    batch_size = 32
     n_blocks = 2
     n_qubits = 5
-    n_layers = 2
+    n_layers = 4
     epochs = 150
-    kfolds = 6
+    kfolds = 10
     lr = 0.05
-    dataset = "ion"
+    dataset = "spectf"
     reps=1
     results = []
     start = time.time()
@@ -185,7 +187,7 @@ if __name__ == "__main__":
         torch.manual_seed(seed)
         np.random.seed(seed)
         
-        model = PQC_4B
+        model = PQC_4A
         #model = LinearNetwork(10, rep)
         optim = torch.optim.Adam
         R = train(model, optim, dataset, batch_size, epochs, batch_size*2, kfolds, seed,

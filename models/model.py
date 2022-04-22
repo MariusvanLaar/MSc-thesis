@@ -21,7 +21,7 @@ class TestModel(BaseModel):
         self.cnot = self.cnot_(0,1)
 
         self.fR0 = self.AfRot()
-        self.fR1 = self.AfRot()
+        self.fR1 = self.YfRot()
         self.dru = self.XfRot(weights_spread=[1,1])
 
         #self.H = Hadamard_layer(n_blocks, n_qubits)
@@ -33,13 +33,13 @@ class TestModel(BaseModel):
         batch_size = x.shape[0]
 
         state = torch.zeros((batch_size, self.n_blocks, 1, 2**self.n_qubits, 1), dtype=torch.cfloat)
-        #state[:, :, :, :, 0] = 2**(-self.n_qubits/2)
-        state[:, :, :, 0, 0] = 1
+        state[:, :, :, :, 0] = 2**(-self.n_qubits/2)
+        #state[:, :, :, 0, 0] = 1
         
         #state = self.H(state) #Implicitly included in state
         #state = self.fR0(state)
-        state = self.dru[0](state, data=x)
-        state = self.Entangle(state)
+        #state = self.dru[0](state, data=x)
+        #state = self.Entangle(state)
         state = self.fR1(state)
                 
         return self.exp_val(state)
@@ -279,9 +279,9 @@ class PQC_3V(PQC_3E):
         self.Entangle = Entangle_layer([], self.n_qubits) #No Entanglement between blocks
         self.cnot = Entangle_layer([], self.n_qubits) #No cnots within blocks
         self.single_qubit_Z(-1)
-        Observable_ = self.Observable.view(1,1,1,-1,1).repeat(1,n_blocks,1,1,1)
-        Observable_[0,:-1,0] = torch.ones_like(Observable_)[0,:-1,0]
-        self.Observable = Observable_ #Output is just Z on final qubit in block 2
+        #Observable_ = self.Observable.view(1,1,1,-1,1).repeat(1,n_blocks,1,1,1)
+        #Observable_[0,:-1,0] = torch.ones_like(Observable_)[0,:-1,0]
+        #self.Observable = Observable_ #Output is just Z on final qubit in block 2
         
     def forward(self, x):
         batch_size = x.shape[0]
@@ -385,6 +385,27 @@ class PQC_4C(PQC_4A):
         
     def decide_ent(self, layer):
         return False
+    
+class PQC_4D(PQC_4A):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
+        super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs)
+        
+    def decide_ent(self, layer):
+        if layer % 2 == 0:
+            return True
+        else:
+            return False
+            
+
+class PQC_4E(PQC_4A):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
+        super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs)
+        
+    def decide_ent(self, layer):
+        if (layer +1) % 2 == 0:
+            return True
+        else:
+            return False
         
 
 class NeuralNetwork(nn.Module):
