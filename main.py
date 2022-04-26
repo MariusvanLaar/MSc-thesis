@@ -109,7 +109,7 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
             optimizer.step(loss_closure)
 
             gradient_1.append(model.var[0][0].weights.grad.flatten()[-1].item())
-            gradient_2.append(model.var[-1][0].weights.grad.flatten()[-1].item())
+            gradient_2.append(model.fvar[1].weights.grad.flatten()[-1].item())
             training_acc.append(train_acc)
             losses.append(loss.item())
             
@@ -167,14 +167,14 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
     return results
 
 if __name__ == "__main__":
-    batch_size = 32
+    batch_size = 3
     n_blocks = 2
     n_qubits = 5
-    n_layers = 4
-    epochs = 150
-    kfolds = 10
+    n_layers = 2
+    epochs = 10
+    kfolds = 3
     lr = 0.05
-    dataset = "spectf"
+    dataset = "ion"
     reps=1
     results = []
     start = time.time()
@@ -183,14 +183,14 @@ if __name__ == "__main__":
         print(rep)
         
         #seed = int(time.time())%100000
-        seed = 4321 + rep
+        seed = 54321 + rep
         torch.manual_seed(seed)
         np.random.seed(seed)
         
-        model = PQC_4A
+        model = PQC_4C
         #model = LinearNetwork(10, rep)
         optim = torch.optim.Adam
-        R = train(model, optim, dataset, batch_size, epochs, batch_size*2, kfolds, seed,
+        R = train(model, optim, dataset, batch_size, epochs, batch_size, kfolds, seed,
                   n_blocks=n_blocks, n_qubits=n_qubits, n_layers=n_layers)
         results.append(R)
         # for j in range(kfolds):

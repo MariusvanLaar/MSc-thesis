@@ -1,0 +1,1 @@
+Exp1 tests different optimizers to see which performs best. Some hyperparameter optimization is done.

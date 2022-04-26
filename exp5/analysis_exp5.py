@@ -21,46 +21,44 @@ command_train = None
 opts=["adam"]
 lrs=[0.05]
 models=["PQC-4A", "PQC-4B", "PQC-4C"]
-dataset = "ion"
+dataset = "spectf"
 
 # layer = 4
 # fname = "../runs/Exp5*"+dataset+"*"+str(layer)+"*.pkl"
 
-
-# fig1, ax = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(12,3))
-# for i, MOD in enumerate(models):  
-#     #print(MOD)
-#     ax1 = ax[i]
-#     layrs_found = []
-#     mean_v_acc = []
-#     mean_t_acc = []
-#     for layer in range(3,9):
-#         fname = "../runs/Exp5*"+dataset+"*"+str(MOD)+"-"+str(layer)+"-2*"+".pkl"
-#         # print(fname)
-#         files = glob.glob(fname)
-#         # print(MOD, layer, len(files))
-#         if len(files) >= 1:
-#             v_accs = np.zeros((len(files)))
-#             t_accs = np.zeros((len(files)))
-#             for i, f in enumerate(files):
-#                 pickle_open = open(f, 'rb')
-#                 run_dict = pickle.load(pickle_open)
-#                 v_accs[i] = run_dict["validation_accuracy"][-1]
-#                 t_accs[i] = run_dict["training_acc"][-1]
-                                
-#         mean_v_acc.append(np.mean(v_accs))
-#         mean_t_acc.append(np.mean(t_accs))
-#         layrs_found.append(layer)
-            
-#     # plt.errorbar(lrs, mean_v_acc, yerr=np.std(mean_v_acc), label=MOD, alpha=0.75)
-#     ax1.plot(layrs_found, mean_v_acc, "x-", label="Validation")
-#     ax1.plot(layrs_found, mean_t_acc, "x-", label="Training")
-#     ax1.set_title(MOD)
-# fig1.supxlabel("# Layers")
-# ax[0].set_ylabel("Mean accuracy after 150 epochs")
-# plt.tight_layout()
-# ax[0].legend()
-# plt.show()
+for b in range(2,7,2):
+    print(b)
+    fig1, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,4))
+    for i, MOD in enumerate(models):  
+        #print(MOD)
+        layrs_found = []
+        mean_v_acc = []
+        mean_g_err = []
+        for layer in range(1,8):
+            fname = "../runs/Exp5*"+dataset+"*"+str(MOD)+"-"+str(layer)+"-"+str(b)+"*.pkl"
+            files = glob.glob(fname)
+            v_accs = np.zeros((len(files)))
+            g_err = np.zeros((len(files)))
+            if len(files) >= 1:
+                for i, f in enumerate(files):
+                    pickle_open = open(f, 'rb')
+                    run_dict = pickle.load(pickle_open)
+                    v_accs[i] = run_dict["validation_accuracy"][-1]
+                    g_err[i] = run_dict["training_acc"][-1] - run_dict["validation_accuracy"][-1]
+                                    
+            mean_v_acc.append(np.mean(v_accs))
+            mean_g_err.append(np.mean(g_err))
+            layrs_found.append(layer)
+                
+        # plt.errorbar(lrs, mean_v_acc, yerr=np.std(mean_v_acc), label=MOD, alpha=0.75)
+        ax[0].plot(layrs_found, mean_v_acc, "x-", label=MOD)
+        ax[1].plot(layrs_found, mean_g_err, "x-", label=MOD)
+    fig1.supxlabel("# Layers")
+    ax[0].set_ylabel("Mean validation accuracy")
+    ax[1].set_ylabel("Mean generalization error")
+    plt.tight_layout()
+    ax[0].legend()
+    plt.show()
 
 ### Convoluted plot of model performance 
 
@@ -109,9 +107,9 @@ dataset = "ion"
 ### Plot gradient variance against number of qubits and layers
 
 # datasets = ["ion"]
-# #models = ["PQC-4C"]
-# layers = [*range(3,8)]
-# blocks = [2,4,6]
+# models = ["PQC-4B"]
+# layers = [1,2,3,4]
+# blocks = [2]
 
 # qubits, layers_found = [], []
 # vargrad1, vargrad2 = [], []
@@ -154,8 +152,8 @@ dataset = "ion"
 #     means1.append(np.mean(vargrad1_))
 #     means2.append(np.mean(vargrad2_))
     
-# plt.plot(np.unique(layers_found), means1, label="Gradient 1")
-# plt.plot(np.unique(layers_found), means2, label="Gradient 2")
+# plt.semilogy(np.unique(layers_found), means1, label="Gradient 1")
+# plt.semilogy(np.unique(layers_found), means2, label="Gradient 2")
 # plt.xlabel("Number of layers")
 # plt.ylabel("Variance")
 # plt.legend()
@@ -222,43 +220,43 @@ dataset = "ion"
 
 ### Plot of validation accuracy against scaling cost
 
-plt.figure(figsize=(8,5))
-for i, MOD in enumerate(models):  
-    for b in range(2,7,2):
-        scaling_cost = []
-        mean_v_acc = []
-        mean_t_acc = []
-        for layer in range(3,8):
-            fname = "../runs/Exp5*"+dataset+"*"+str(MOD)+"-"+str(layer)+"-"+str(b)+"*.pkl"
-            # print(fname)
-            files = glob.glob(fname)
-            # print(MOD, layer, len(files))
-            if len(files) >= 1:
-                v_accs = np.zeros((len(files)))
-                t_accs = np.zeros((len(files)))
-                for i, f in enumerate(files):
-                    pickle_open = open(f, 'rb')
-                    run_dict = pickle.load(pickle_open)
-                    v_accs[i] = run_dict["validation_accuracy"][-1]
-                    t_accs[i] = run_dict["training_acc"][-1]
+# plt.figure(figsize=(8,5))
+# for i, MOD in enumerate(models):  
+#     for b in range(2,7,2):
+#         scaling_cost = []
+#         mean_v_acc = []
+#         mean_t_acc = []
+#         for layer in range(3,8):
+#             fname = "../runs/Exp5*"+dataset+"*"+str(MOD)+"-"+str(layer)+"-"+str(b)+"*.pkl"
+#             # print(fname)
+#             files = glob.glob(fname)
+#             # print(MOD, layer, len(files))
+#             if len(files) >= 1:
+#                 v_accs = np.zeros((len(files)))
+#                 t_accs = np.zeros((len(files)))
+#                 for i, f in enumerate(files):
+#                     pickle_open = open(f, 'rb')
+#                     run_dict = pickle.load(pickle_open)
+#                     v_accs[i] = run_dict["validation_accuracy"][-1]
+#                     t_accs[i] = run_dict["training_acc"][-1]
                                     
-                mean_v_acc.append(np.mean(v_accs))
-                mean_t_acc.append(np.mean(t_accs))
-                if MOD == 'PQC-4A':
-                    dc = b
-                elif MOD == "PQC-4B":
-                    dc = b*layer
-                elif MOD == "PQC-4C":
-                    dc = 0
-                scaling_cost.append(dc) # 5 for 5 qubits
+#                 mean_v_acc.append(np.mean(v_accs))
+#                 mean_t_acc.append(np.mean(t_accs))
+#                 if MOD == 'PQC-4A':
+#                     dc = b
+#                 elif MOD == "PQC-4B":
+#                     dc = b*layer
+#                 elif MOD == "PQC-4C":
+#                     dc = 0
+#                 scaling_cost.append(dc+0.1*layer) # 5 for 5 qubits
             
-        # plt.errorbar(lrs, mean_v_acc, yerr=np.std(mean_v_acc), label=MOD, alpha=0.75)
-        plt.plot(scaling_cost, mean_v_acc, "x-", label="Validation")
-        #plt.plot(scaling_cost, mean_t_acc, "x-", label="Training")
+#         # plt.errorbar(lrs, mean_v_acc, yerr=np.std(mean_v_acc), label=MOD, alpha=0.75)
+#         plt.plot(scaling_cost, mean_v_acc, "x-", label=MOD+str(b)+str(layer))
+#         #plt.plot(scaling_cost, mean_t_acc, "x-", label="Training")
 
-plt.ylabel("Mean accuracy after 150 epochs")
-#plt.legend()
-plt.show()
+# plt.ylabel("Mean accuracy after 150 epochs")
+# plt.legend()
+# plt.show()
 
                                    
             

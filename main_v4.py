@@ -31,7 +31,7 @@ def train(args):
     for fold, (train_idx, test_idx) in enumerate(kf.split(dataclass.data)):
         save_name = f"{args.tag}-{fold}-{args.dataset}-{args.optimizer}-{args.learning_rate}-" \
         f"{args.model}-{args.n_layers}-{args.n_blocks}-{args.n_qubits}-{args.seed}-*"
-        if len(glob.glob("runs"+os.sep+save_name)) == 0:
+        if len(glob.glob("runs"+os.sep+save_name)) == 0: #Check if this iteration has been done before
             X_tr, Y_tr = dataclass[train_idx]
             X_te, Y_te = dataclass[test_idx]
             
@@ -144,8 +144,8 @@ def train_(train_set, test_set, fold_id, args):
 
         optimizer.step(loss_closure)
         
-        gradient_1[epoch] = model.var[0][0].weights.grad.flatten()[-1].item()
-        gradient_2[epoch] = model.var[-1][0].weights.grad.flatten()[-1].item()
+        gradient_1[epoch] = model.var[0][0].weights.grad.flatten()[-1].item() #Gradient first Yrot of final qubit in final block
+        gradient_2[epoch] = model.fvar[1].weights.grad.flatten()[-1].item() #Gradient last Yrot of final qubit in final block
         losses[epoch] = loss.item()
         t_accs[epoch] = training_acc
         
