@@ -23,6 +23,7 @@ class DataFactory(Dataset):
         self.labels = data_dict["labels"]
         self.data_info = dict((k,data_dict[k]) for k in data_dict.keys()
                               if k not in ["data", "labels"])
+        self.data_info["return_probs"] = True #Whether to normalize model output to [0,1] range (if true)
         
         
     def __len__(self):

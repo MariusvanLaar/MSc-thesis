@@ -72,7 +72,6 @@ class Rx_layer(nn.Module):
         """
         Take state to be a tensor with dimension batch x blocks x d&c x n-qubit state (2**n x 1) 
         """
-        
         Rxs = self.Rx(data).cfloat()
         U = torch.zeros(*Rxs.shape[:3], 2**self.n_qubits, 2**self.n_qubits).cfloat()
         for batch_idx in range(U.shape[0]):
@@ -141,7 +140,7 @@ class Ry_layer(nn.Module):
                 U[batch_idx, block_idx, :] = krons(Rys[batch_idx, block_idx, 0])
 
         state = torch.matmul(U, state) 
-
+        
         return state
         
     ### Consider how to include nograd if weights is given. This might be already incorporated?

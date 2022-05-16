@@ -27,6 +27,7 @@ def train(args):
     
     n_features = args.n_blocks*args.n_qubits
     dataclass = datasets.all_datasets[args.dataset](n_features)
+    assert "loss" in dataclass.data_info, "Dataclass has no assigned loss function"
     kf = KFold(args.kfolds, shuffle=True, random_state=args.seed)
     for fold, (train_idx, test_idx) in enumerate(kf.split(dataclass.data)):
         save_name = f"{args.tag}-{fold}-{args.dataset}-{args.optimizer}-{args.learning_rate}-" \
@@ -42,7 +43,7 @@ def train(args):
             train_set = FoldFactory(X_tr, Y_tr)
             test_set = FoldFactory(X_te, Y_te)
                     
-            train_(train_set, test_set, fold, args)
+            train_(train_set, test_set, fold, {**args, **dataclass.data_info})
         
 
 def train_(train_set, test_set, fold_id, args):
@@ -80,7 +81,6 @@ def train_(train_set, test_set, fold_id, args):
             observable=args.observable,
             return_prob=args.return_prob,
             weights_spread=args.initial_weights_spread,
-            grant_init=args.initialize_to_identity,
             )
     elif args.model[:3] == "ANN":
         model = models.model_set[args.model](
@@ -128,6 +128,8 @@ def train_(train_set, test_set, fold_id, args):
             
             optimizer.zero_grad()
             output = model(x)
+            if args.return_probs:
+                output = model.return_probability(output)
             pred = output.reshape(*y.shape)
             training_acc = (torch.round(pred)==y).sum().item()/args.batch_size
            
@@ -156,6 +158,8 @@ def train_(train_set, test_set, fold_id, args):
             with torch.no_grad():
                 x_val, y_val = next(iter(test_data))
                 output = model(x_val)
+                if args.return_probs:
+                    output = model.return_probability(output)
                 pred = output.reshape(*y_val.shape)
                 y_val = y_val.float()
                 
@@ -171,6 +175,8 @@ def train_(train_set, test_set, fold_id, args):
         final_t_data = DataLoader(train_set, batch_size=n_final_t_samples)                
         x, y = next(iter(final_t_data))
         output = model(x)
+        if args.return_probs:
+            output = model.return_probability(output)
         pred = output.reshape(*y.shape)
         y = y.float()
         loss = criterion(pred, y)
@@ -182,6 +188,8 @@ def train_(train_set, test_set, fold_id, args):
         final_data = DataLoader(test_set, batch_size=n_final_samples)
         x_val, y_val = next(iter(final_data))
         output = model(x_val)
+        if args.return_probs:
+            output = model.return_probability(output)
         pred = output.reshape(*y_val.shape)
         y_val = y_val.float()
         val_loss = criterion(pred, y_val)
@@ -251,13 +259,6 @@ if __name__ == "__main__":
         help=f"dataset; choose between {', '.join(datasets.all_datasets.keys())}",
     )
     parser_train.add_argument(
-        "--loss",
-        metavar="L",
-        type=str,
-        default="BCE",
-        help="loss function, choose from BCE, MSE or CE",
-    )
-    parser_train.add_argument(
         "--batch-size", metavar="B", type=int, default=32, help="batch size",
     )
     parser_train.add_argument(
@@ -320,13 +321,6 @@ if __name__ == "__main__":
         type=list,
         default=[-pi/2, pi/2],
         help="initial weights spread for the parameterized Pauli rotation gates",
-    )
-    parser_train.add_argument(
-        "--initialize-to-identity",
-        metavar="INIT",
-        type=bool,
-        default=False,
-        help="initialize weights to act as blocks of identities",
     )
 
     args = parser.parse_args()

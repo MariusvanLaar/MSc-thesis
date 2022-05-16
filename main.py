@@ -31,9 +31,19 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
     torch.manual_seed(seed+123456789)
     np.random.seed(seed+123456789)
 
+    #Initialize dataclass
     n_features = kwargs["n_blocks"]*kwargs["n_qubits"]
-    criterion = nn.MSELoss()
     dataclass = datasets.all_datasets[data_filename](n_features)
+    assert "loss" in dataclass.data_info, "Dataclass has no assigned loss function"
+    args = {**args, **dataclass.data_info}
+    #Set loss function
+    if args.loss == "BCE":
+        criterion = nn.BCELoss()
+    elif args.loss == "MSE":
+        criterion = nn.MSELoss()
+    elif args.loss == "CE":
+        criterion = nn.CrossEntropyLoss()
+        
     kf = KFold(kfolds, shuffle=True, random_state=seed)
     results = []
     for fold, (train_idx, test_idx) in enumerate(kf.split(dataclass.data)):
@@ -41,16 +51,20 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
         torch.manual_seed(seed+fold)
         np.random.seed(seed+fold)
         if "index" in kwargs.keys():
-            model = args["model"](kwargs["n_blocks"], kwargs["n_qubits"], n_layers=kwargs["n_layers"], index=kwargs["index"])
+            model = args["model"](kwargs["n_blocks"], kwargs["n_qubits"],
+                                  n_layers=kwargs["n_layers"], index=kwargs["index"],
+                                  **kwargs)
         else:
-            model = args["model"](kwargs["n_blocks"], kwargs["n_qubits"], n_layers=kwargs["n_layers"])
+            model = args["model"](kwargs["n_blocks"], kwargs["n_qubits"],
+                                  n_layers=kwargs["n_layers"],
+                                  **kwargs)
         
         # for param in model.parameters():
         #     shp = param.data.shape
         #     param.data.flatten()[-1] = set_weights[fold]
         #     param.data.view(shp)
             
-        if "lr" in kwargs.keys():
+        if "lr" in kwargs:
             optimizer = optim(model.parameters(), lr=kwargs["lr"])
         else:
             optimizer = optim(model.parameters(), lr=0.05)
@@ -94,6 +108,8 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
                 optimizer.zero_grad()
                 
                 output = model(x)
+                if args.return_probs:
+                    output = model.return_probability(output)
                 pred = output.reshape(*y.shape)
                 train_acc = (torch.round(pred)==y).sum().item()/batch_size
                 loss = criterion(pred, y)
@@ -115,24 +131,13 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
                 with torch.no_grad():
                     x_val, y_val = next(iter(test_data))
                     output = model(x_val)
+                    if args.return_probs:
+                        output = model.return_probability(output)
                     pred = output.reshape(*y_val.shape)
                     y_val = y_val.float()
                     outputs.append((y_val*pred)[0].item())
                     accs.append((torch.round(pred)==y_val).sum().item()/val_batch_size)
-                    try:
-                        val_loss = criterion(pred, y_val)
-                    except RuntimeError:
-                        print("Validation step")
-                        idx_l = np.argwhere(pred<0)
-                        idx_u = np.argwhere(pred>1)
-                        print(x_val[idx_l].flatten()[:10])
-                        print(x_val[idx_u].flatten()[:10])
-                        _ = model(x_val[idx_l], verbose=True)
-                        __ = model(x_val[idx_u], verbose=True)
-                        print(pred[idx_l])
-                        print(pred[idx_u]%1)
-                    
-                    #print(epoch, val_loss.item())
+                    val_loss = criterion(pred, y_val)
                     val_losses.append(val_loss.item())
                     
         with torch.no_grad():
@@ -140,6 +145,8 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
             final_t_data = DataLoader(train_set, batch_size=n_final_t_samples)                
             x, y = next(iter(final_t_data))
             output = model(x)
+            if args.return_probs:
+                output = model.return_probability(output)
             pred = output.reshape(*y.shape)
             y = y.float()
             loss = criterion(pred, y)
@@ -150,6 +157,8 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
             final_data = DataLoader(test_set, batch_size=n_final_samples)                
             x_val, y_val = next(iter(final_data))
             output = model(x_val)
+            if args.return_probs:
+                output = model.return_probability(output)
             pred = output.reshape(*y_val.shape)
             y_val = y_val.float()
             

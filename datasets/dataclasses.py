@@ -20,6 +20,7 @@ class WDBC(DataFactory):
         super().__init__("wdbc", self.permute, n_features)
         self.scaler = MinMaxScaler((-np.pi/2, np.pi/2))
         self.mean = None
+        self.data_info["loss"] = "BCE"
 
     def fit(self, X):
         self.mean = np.mean(X, axis=0)
@@ -39,6 +40,7 @@ class ION(DataFactory):
         self.mean = 0
         self.pca = PCA()
         self.scaler = MinMaxScaler((-np.pi/2, np.pi/2))
+        self.data_info["loss"] = "BCE"
 
     def fit(self, X):
         self.mean = np.mean(X, axis=0)
@@ -58,6 +60,7 @@ class SONAR(DataFactory):
         super().__init__("sonar", self.permute, n_features)
         self.scaler = MinMaxScaler((-np.pi/2, np.pi/2))
         self.mean = None
+        self.data_info["loss"] = "BCE"
 
     def fit(self, X):
         self.mean = np.mean(X, axis=0)
@@ -76,6 +79,7 @@ class SPECTF(DataFactory):
         self.mean = 0
         self.pca = PCA()
         self.scaler = MinMaxScaler((-np.pi/2, np.pi/2))
+        self.data_info["loss"] = "BCE"
 
     def fit(self, X):
         self.mean = np.mean(X, axis=0)
@@ -94,6 +98,7 @@ class MNIST(DataFactory):
         self.permute = False
         super().__init__("mnist", self.permute, n_features)
         self.scaler = MinMaxScaler((0, np.pi))
+        self.data_info["loss"] = "BCE"
 
     def fit(self, X):
         self.scaler.fit(X)
@@ -106,6 +111,8 @@ class synth_dataset(DataFactory):
     def __init__(self, model, n_features, layers):
         self.fname = f"{model}_{layers}_{n_features}"
         super().__init__(self.fname, False, n_features)
+        self.data_info["loss"] = "MSE"
+        self.data_info["return_probs"] = False
         
     def fit(self, X):
         pass
@@ -127,6 +134,7 @@ class SIMPLE(Dataset):
         self.len_data = 500
         self.data = np.random.choice([-1,1], size=(self.len_data, n_features))*np.pi/2
         self.labels = (np.prod(self.data, axis=1)+1)*0.5
+        self.data_info["loss"] = "BCE"
         
     def __len__(self):
         return self.len_data

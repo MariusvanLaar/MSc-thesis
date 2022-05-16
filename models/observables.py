@@ -9,25 +9,33 @@ Created on Sat May 14 15:50:06 2022
     in the main program. The inputs for each class are n_qubits, n_blocks, 
     block and qubit index if going for single qubit index.
     User input will be observable class and return_probability (bool) to
-    indictate whether to map the input to the range [0,1]"""
+    indictate whether to map the input to the range [0,1]
+    Have to change model to return state and main to process state"""
+    
+"""Dont make observables a different class to the model, but a user input string
+    choosing from a small set of options, and also a user input of whether to map to a
+    probabiltity"""
 
 import torch
 import torch.nn as nn
 import numpy as np
 import math
 
-    def single_qubit_Z(self, idx):
-        """idx is the index of the qubit within the block to be measured"""
-        if idx == 0:
-            self.Observable = torch.kron(torch.Tensor([1,-1]), torch.ones(2**(self.n_qubits-1))).view(-1,1)
-        elif idx > 0 and idx < self.n_qubits-1:
-            I1 = torch.ones(2**idx)
-            I2 = torch.ones(2**(self.n_qubits-1-idx))
-            self.Observable = torch.kron(I1,
-                                         torch.kron(torch.Tensor([1,-1]),
-                                                    I2)).view(-1,1)
-        elif idx == self.n_qubits-1 or idx == -1:
-            self.Observable = torch.kron(torch.ones(2**(self.n_qubits-1)), torch.Tensor([1,-1])).view(-1,1)
+class core_observable()
+
+
+class single_qubit_Z(self, idx):
+    """idx is the index of the qubit within the block to be measured"""
+    if idx == 0:
+        self.Observable = torch.kron(torch.Tensor([1,-1]), torch.ones(2**(self.n_qubits-1))).view(-1,1)
+    elif idx > 0 and idx < self.n_qubits-1:
+        I1 = torch.ones(2**idx)
+        I2 = torch.ones(2**(self.n_qubits-1-idx))
+        self.Observable = torch.kron(I1,
+                                     torch.kron(torch.Tensor([1,-1]),
+                                                I2)).view(-1,1)
+    elif idx == self.n_qubits-1 or idx == -1:
+        self.Observable = torch.kron(torch.ones(2**(self.n_qubits-1)), torch.Tensor([1,-1])).view(-1,1)
             
     def all_qubit_Z(self):
         """Quick function to revert an observable to all-Pauli-Z"""
