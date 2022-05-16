@@ -1,10 +1,10 @@
 #!/bin/sh
 # Ionosphere dataset tested with various ansatze 4A and 4C
 
-models=("PQC-4D" "PQC-4E")
-seed=333
+models=("PQC-4C" "PQC-4D" "PQC-4E")
+seed=334
 
-for L in $(seq 1 16); do
+for L in $(seq 7 8); do
 for M in "${models[@]}"; do
 
 	echo "Running model $M with $L"

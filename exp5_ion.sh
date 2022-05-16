@@ -1,25 +1,28 @@
 #!/bin/sh
 # Ionosphere dataset tested with various ansatze 4A and 4C
 
-models=("PQC-4A" "PQC-4C")
+models=("PQC-4B" "PQC-4C" "PQC-4D" "PQC-4E")
+datasets=("ion" "spectf" "wdbc")
 
-for B in $(seq 2 2 6); do
-for L in $(seq 1 7); do
+seed=234
+
+for D in "${datasets[@]}"; do
+for L in $(seq 2 4); do
 for M in "${models[@]}"; do
 
-	echo "Running model $M with $L $B"
+	echo "Running model $M with $L $D"
 	
 	python main_v4.py \
-	--tag "Exp5-2" \
-	--seed 2 \
+	--tag "Exp15-"$seed \
+	--seed $seed \
 	--epochs 150 \
 	--kfolds 10 \
 	train \
 	--optimizer "adam" \
 	--model $M \
-	--dataset "ion" \
+	--dataset $D \
 	--n-layers $L \
-	--n-blocks $B	
+	--n-blocks 2 
 
 	sleep 5
 	

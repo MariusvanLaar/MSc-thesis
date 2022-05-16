@@ -14,18 +14,21 @@ from .layers import Rx_layer, Ry_layer, Rz_layer, Hadamard_layer, CNOT_layer, En
 
 
 class BaseModel(nn.Module):
-    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: float = [-np.pi/2,np.pi/2], grant_init: bool = False):
+    def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2],
+                 observable="All"):
         super().__init__()   
         
         self.n_blocks = n_blocks
         self.n_qubits = n_qubits
         self.weights_spread = weights_spread
         
-        Observ = torch.Tensor([[1,-1]]).cfloat().reshape((1,2,1))
-        Observ = Observ.repeat(n_qubits,1,1)
-        #Observ[-1, 1] = -1
-        #If using not a diagonal observable have to change exp_val() method below too
-        self.Observable = krons(Observ)
+        self.observables = {"All": self.all_qubit_Z, "Final": self.single_qubit_Z}
+        assert type(observable) in [str, list], "Invalid observable given"
+        if type(observable) == str:
+            self.observables[observable]()
+        elif type(observable) == list: #list of [block idx, qubit idx] 
+            self.Observable = self.single_qubit_Z(observable)
+        
         
     def cnot_(self, offset, leap):
         return nn.Sequential(
@@ -49,6 +52,14 @@ class BaseModel(nn.Module):
                 Ry_layer(self.n_blocks, self.n_qubits, weights_spread=weights_spread),
                 )
 
+    def ZYfRot(self, weights_spread=False):
+        if not weights_spread:
+            weights_spread = self.weights_spread
+        return nn.Sequential(
+                Rz_layer(self.n_blocks, self.n_qubits, weights_spread=weights_spread),
+                Ry_layer(self.n_blocks, self.n_qubits, weights_spread=weights_spread),
+                )
+
     def XfRot(self, weights_spread=False):
         if not weights_spread:
             weights_spread = self.weights_spread
@@ -64,8 +75,13 @@ class BaseModel(nn.Module):
     def forward(self, x):
         raise NotImplementedError("Forward method not implemented")
         
-    def single_qubit_Z(self, idx):
-        """idx is the index of the qubit within the block to be measured"""
+    def single_qubit_Z(self, idxs=[-1]):
+        """idxs is a list of [block index, qubit index] to be the target single qubit observable.
+            If the block index is omitted, the observable is Z on the qubit index in each
+            block (which is strictly not a single qubit observable but we make do."""
+                   
+        #This section initializes a Pauli Z observable on the idx qubit of each block
+        idx = idxs[-1]
         if idx == 0:
             self.Observable = torch.kron(torch.Tensor([1,-1]), torch.ones(2**(self.n_qubits-1))).view(-1,1)
         elif idx > 0 and idx < self.n_qubits-1:
@@ -77,12 +93,19 @@ class BaseModel(nn.Module):
         elif idx == self.n_qubits-1 or idx == -1:
             self.Observable = torch.kron(torch.ones(2**(self.n_qubits-1)), torch.Tensor([1,-1])).view(-1,1)
             
+        #This section customizes the above observable to act on a specific block
+        if len(idxs) == 2:
+            self.Observable = self.Observable.repeat(self.n_blocks, 1,1,1)
+            nidxs = [i for i in range(self.n_blocks) if i != idxs[0]]
+            self.Observable[nidxs] = torch.ones((self.n_blocks-1,1,2**self.n_qubits, 1))
+            
+                
     def all_qubit_Z(self):
         """Quick function to revert an observable to all-Pauli-Z"""
         Observ = torch.Tensor([[1,-1]]).cfloat().reshape((1,2,1))
         Observ = Observ.repeat(self.n_qubits,1,1)
         self.Observable = krons(Observ)
-
+        
         
     def exp_val(self, state):
         batch_size = state.shape[0]
@@ -98,7 +121,10 @@ class BaseModel(nn.Module):
             coefs = (a_conj*alpha).view(1,-1)
             Os = inn_prods.prod(dim=1).view(batch_size, -1) * coefs
             O += Os.sum(dim=1)
-        return torch.clamp(0.5*(O.real.float()+1), min=0, max=1)
+        return O.real.float()
+    
+    def return_probability(self, state):
+        return torch.clamp(0.5*(self.exp_val(state)+1), min=0, max=1)
     #Clamp is necessary for over or underflow errors leading to values just above 1 or below 0 (on the scale 0f e-08)
     #Can be a source of bugs though, especially when introducing new features "upstream" the clamp should be disabled.
     

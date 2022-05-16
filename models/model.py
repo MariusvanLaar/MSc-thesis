@@ -259,10 +259,10 @@ class PQC_3E(BaseModel):
         
         #state = self.H(state) #Implicitly included in state
         
-        state = self.fR0w[0](state, x)
+        state = self.fR0w[0](state, data=x)
         state = self.fR1(state)
         state = self.cnot(state)
-        state = self.fR2w[0](state, x)
+        state = self.fR2w[0](state, data=x)
         state = self.fR3(state)
         state = self.Entangle(state)
         state = self.cnot(state)
@@ -343,7 +343,7 @@ class PQC_4A(BaseModel):
     def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
         super().__init__(n_blocks, n_qubits, weights_spread, grant_init)  
         self.n_layers = n_layers
-        self.var = nn.Sequential(*[self.YfRot() for _ in range(n_layers)])
+        self.var = nn.Sequential(*[self.ZYfRot() for _ in range(n_layers)])
         self.dru = nn.Sequential(*[self.XfRot(weights_spread=[1,1]) for _ in range(n_layers)])
         self.cnot = nn.Sequential(*[self.cnot_(0,1) for offset in range(n_layers)])
         self.fvar = self.AfRot()
@@ -364,7 +364,6 @@ class PQC_4A(BaseModel):
             state = self.dru[l][0](state, data=x)
             state = self.var[l](state)
             state = self.cnot[l](state)
-            
             if self.decide_ent(l):
                 state = self.Entangle(state)
             
@@ -386,26 +385,110 @@ class PQC_4C(PQC_4A):
     def decide_ent(self, layer):
         return False
     
-class PQC_4D(PQC_4A):
+class PQC_4AA(PQC_4A):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
+        super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs) 
+        self.all_qubit_Z()
+    
+class PQC_4D(PQC_4B):
     def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
         super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs)
-        
-    def decide_ent(self, layer):
-        if layer % 2 == 0:
-            return True
-        else:
-            return False
-            
+        self.all_qubit_Z()  
 
-class PQC_4E(PQC_4A):
+class PQC_4E(PQC_4C):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
+        super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs)
+        self.all_qubit_Z()
+        
+class PQC_4Z(PQC_4C):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,0], grant_init: bool = False, **kwargs):
+        super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs)
+        self.Entangle = Entangle_layer([], self.n_qubits) #No Entanglement between blocks
+        if n_qubits == 1:
+            self.cnot = nn.Sequential(*[Entangle_layer([], self.n_qubits) for i in range(self.n_layers)]) #No Entanglement in blocks
+        
+class PQC_4S(BaseModel):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
+        super().__init__(n_blocks, n_qubits, weights_spread, grant_init)  
+        self.n_layers = n_layers
+        self.var = nn.Sequential(*[self.ZYfRot() for _ in range(n_layers)])
+        self.dru = self.XfRot(weights_spread=[1,1])
+        self.cnot = nn.Sequential(*[self.cnot_(0,1) for offset in range(n_layers)])
+        self.fvar = self.AfRot()
+        self.Entangle = Entangle_layer([[[i,-1],[(i+1)%n_blocks,0]] for i in range(n_blocks)], self.n_qubits) #Entanglement between blocks
+        
+    def decide_ent(self, layer):
+        return True
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+            
+        state = torch.zeros((batch_size, self.n_blocks, 1, 2**self.n_qubits, 1), dtype=torch.cfloat)
+        #state[:, :, :, :, 0] = 2**(-self.n_qubits/2)
+        state[:, :, :, 0, 0] = 1
+        state = self.dru[0](state, data=x)
+        for l in range(self.n_layers):
+            state = self.var[l](state)
+            state = self.cnot[l](state)
+            if self.decide_ent(l):
+                state = self.Entangle(state)
+            
+        state = self.fvar(state)
+        
+        return self.exp_val(state)       
+    
+class PQC_4T(PQC_4S):
     def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
         super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs)
         
     def decide_ent(self, layer):
-        if (layer +1) % 2 == 0:
-            return True
-        else:
-            return False
+        return False
+        
+        
+class PQC_5A(BaseModel):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], grant_init: bool = False, **kwargs):
+        """ A model where the number of CNOTs is varied and the number of layers is fixed, the CNOTs are randomly placed"""
+        super().__init__(n_blocks, n_qubits, weights_spread, grant_init) 
+        self.n_cuts = n_layers
+        self.n_layers = 4
+        self.var = nn.Sequential(*[self.ZYfRot() for _ in range(self.n_layers)])
+        self.dru = nn.Sequential(*[self.XfRot(weights_spread=[1,1]) for _ in range(self.n_layers)])
+        self.cnot = nn.Sequential(*[self.cnot_(0,1) for offset in range(self.n_layers)])
+        self.fvar = self.AfRot()
+        self.gen_coords = self.gen_rand_CNOT_coords()
+        self.Entangle = nn.Sequential(*[Entangle_layer(self.gen_coords[i], self.n_qubits) for i in range(self.n_layers)])
+        self.single_qubit_Z(-1)
+        
+    def gen_rand_CNOT_coords(self):
+        layer_list = [[] for _ in range(self.n_layers)]
+        for j in range(self.n_cuts):
+            l_idx = np.random.randint(0, self.n_layers)
+            bx1, bx2 = np.random.choice(self.n_blocks, size=(2), replace=False)
+            qx1, qx2 = np.random.randint(0, self.n_qubits, size=(2))
+            layer_list[l_idx].append([[bx1, qx1], [bx2, qx2]])
+        return layer_list 
+    
+    def forward(self, x):
+        batch_size = x.shape[0]
+            
+        state = torch.zeros((batch_size, self.n_blocks, 1, 2**self.n_qubits, 1), dtype=torch.cfloat)
+        #state[:, :, :, :, 0] = 2**(-self.n_qubits/2)
+        state[:, :, :, 0, 0] = 1
+        
+        for l in range(self.n_layers):
+            state = self.dru[l][0](state, data=x)
+            state = self.var[l](state)
+            state = self.cnot[l](state)
+            state = self.Entangle[l](state)
+            
+        state = self.fvar(state)
+        
+        return self.exp_val(state)
+    
+class PQC_5B(PQC_5A):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int):
+        super().__init__(n_blocks, n_qubits, n_layers)
+        self.all_qubit_Z()
         
 
 class NeuralNetwork(nn.Module):
@@ -431,20 +514,4 @@ class NeuralNetwork(nn.Module):
         out = nn.Sigmoid()(self.layer4(out))
         return out
     
-class LinearNetwork(nn.Module):
-    def __init__(self, input_dim, index):
-        super(LinearNetwork, self).__init__()
-        self.flatten = nn.Flatten()
-        self.input_dim = input_dim
-        self.layer1 = nn.Linear(1, 10)
-        self.layer2 = nn.Linear(10, 1)
-        self.idx = index
-
-    def forward(self, x):
-        if x.shape[1] >= self.input_dim:
-            x = torch.narrow(x, 1, 0, self.input_dim)
-        x = self.flatten(x).float()[:,self.idx].view(-1,1)
-        out = self.layer1(x)
-        out = self.layer2(out)
-        return out
 

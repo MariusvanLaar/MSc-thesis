@@ -1,1 +1,1 @@
-Exp1 tests different optimizers to see which performs best. Some hyperparameter optimization is done.
+Exp1 tests different optimizers (Adam, lbfgs, SPSA, CMA) to see which performs best in some simple experiments. Some hyperparameter optimization is done.

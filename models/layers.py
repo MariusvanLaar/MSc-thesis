@@ -309,7 +309,6 @@ class Entangle_layer(nn.Module):
         """
         state is a batch_size x n_blocks x d&c x 2**n_qubits x 1
         ent_pairs is a list of lists containing pairs of idxs of entangled blocks"""
-        
         for gate in self.coordinates:
             state = state.repeat(1,1,2,1,1)
             

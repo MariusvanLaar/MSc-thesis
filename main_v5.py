@@ -77,6 +77,8 @@ def train_(train_set, test_set, fold_id, args):
             n_blocks=args.n_blocks,
             n_qubits=args.n_qubits,
             n_layers=args.n_layers,
+            observable=args.observable,
+            return_prob=args.return_prob,
             weights_spread=args.initial_weights_spread,
             grant_init=args.initialize_to_identity,
             )
@@ -292,6 +294,18 @@ if __name__ == "__main__":
         type=int,
         default=5,
         help="number of layers in certain models",
+    )
+    parser_train.add_argument(
+        "--observable",
+        metavar="OB",
+        default="All",
+        help="type of observable",
+    )
+    parser_train.add_argument(
+        "--return-prob",
+        metavar="P",
+        default=False,
+        help="Boolean of whether to map the model output to the range [0,1]",
     )
     parser_train.add_argument(
         "--learning-rate",
