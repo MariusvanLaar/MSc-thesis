@@ -9,7 +9,6 @@ MG_simulator.py
 SQRE_circuit.py
 playground.py
 qpic.py
-*data*
 *runs*
 *fails*
 ion_analysis.py
@@ -18,3 +17,4 @@ exp2/
 exp3/
 exp4/
 exp5/
+datasets/cifar-10-batches-py/

@@ -1,0 +1,18 @@
+n_features = n
+batch_size = 1
+n_blocks = 1
+n_qubits = n_features
+X = (torch.zeros((batch_size, n_blocks, 1, n_qubits,1))+1)*pi/2
+print(X.size())
+data = [X.view(-1,), -X.view(-1,)]
+labels = [-1, 1]
+
+synth_data = {"data": data, "labels": labels}
+pickling_on = open("Simple-"+str(n)+"-train.pkl","wb")
+pickle.dump(synth_data, pickling_on)
+pickling_on.close()
+
+synth_data = {"data": data, "labels": labels}
+pickling_on = open("Simple-"+str(n)+"-test.pkl","wb")
+pickle.dump(synth_data, pickling_on)
+pickling_on.close()
