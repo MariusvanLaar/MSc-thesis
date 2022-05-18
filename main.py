@@ -23,7 +23,6 @@ import pandas as pd
 from sklearn.model_selection import KFold
 
 
-
 def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfolds=10, seed=5, **kwargs):
     args = dict(model=model, dataset=data_filename, batch_size=batch_size, epochs=epochs, val_batch_size=val_batch_size, 
                 kfolds=kfolds, kwargs=kwargs)
@@ -35,13 +34,13 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
     n_features = kwargs["n_blocks"]*kwargs["n_qubits"]
     dataclass = datasets.all_datasets[data_filename](n_features)
     assert "loss" in dataclass.data_info, "Dataclass has no assigned loss function"
-    args = {**args, **dataclass.data_info}
+    args = dict(**args, **dataclass.data_info)
     #Set loss function
-    if args.loss == "BCE":
+    if args["loss"] == "BCE":
         criterion = nn.BCELoss()
-    elif args.loss == "MSE":
+    elif args["loss"] == "MSE":
         criterion = nn.MSELoss()
-    elif args.loss == "CE":
+    elif args["loss"] == "CE":
         criterion = nn.CrossEntropyLoss()
         
     kf = KFold(kfolds, shuffle=True, random_state=seed)
@@ -50,14 +49,15 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
         print(fold)
         torch.manual_seed(seed+fold)
         np.random.seed(seed+fold)
+
         if "index" in kwargs.keys():
             model = args["model"](kwargs["n_blocks"], kwargs["n_qubits"],
                                   n_layers=kwargs["n_layers"], index=kwargs["index"],
                                   **kwargs)
         else:
-            model = args["model"](kwargs["n_blocks"], kwargs["n_qubits"],
-                                  n_layers=kwargs["n_layers"],
-                                  **kwargs)
+            # model = args["model"](kwargs["n_blocks"], kwargs["n_qubits"], 
+            #                       n_layers=kwargs["n_layers"], **kwargs)
+            model = args["model"](**kwargs)
         
         # for param in model.parameters():
         #     shp = param.data.shape
@@ -108,7 +108,7 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
                 optimizer.zero_grad()
                 
                 output = model(x)
-                if args.return_probs:
+                if args["return_probs"]:
                     output = model.return_probability(output)
                 pred = output.reshape(*y.shape)
                 train_acc = (torch.round(pred)==y).sum().item()/batch_size
@@ -131,7 +131,7 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
                 with torch.no_grad():
                     x_val, y_val = next(iter(test_data))
                     output = model(x_val)
-                    if args.return_probs:
+                    if args["return_probs"]:
                         output = model.return_probability(output)
                     pred = output.reshape(*y_val.shape)
                     y_val = y_val.float()
@@ -145,7 +145,7 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
             final_t_data = DataLoader(train_set, batch_size=n_final_t_samples)                
             x, y = next(iter(final_t_data))
             output = model(x)
-            if args.return_probs:
+            if args["return_probs"]:
                 output = model.return_probability(output)
             pred = output.reshape(*y.shape)
             y = y.float()
@@ -157,7 +157,7 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
             final_data = DataLoader(test_set, batch_size=n_final_samples)                
             x_val, y_val = next(iter(final_data))
             output = model(x_val)
-            if args.return_probs:
+            if args["return_probs"]:
                 output = model.return_probability(output)
             pred = output.reshape(*y_val.shape)
             y_val = y_val.float()
@@ -176,12 +176,13 @@ def train(model, optim, data_filename, batch_size, epochs, val_batch_size, kfold
 if __name__ == "__main__":
     batch_size = 32
     n_blocks = 2
-    n_qubits = 5
-    layers = [1]
+    n_qubits = 4
+    layers = [4]
     epochs = 150
     kfolds = 8
     lrs = [0.01, 0.05, 0.1]
-    dataset = "synth-4AA"
+    dataset = "ising-10"
+    print(dataset)
     reps=1
     results = []
     start = time.time()
@@ -193,32 +194,38 @@ if __name__ == "__main__":
         torch.manual_seed(seed)
         np.random.seed(seed)
         
-        model = PQC_4AA
-        #model = LinearNetwork(10, rep)
+        model = PQC_4B
+        #model = NeuralNetwork(10)
         optim = torch.optim.Adam
         R = train(model, optim, dataset, batch_size, epochs, batch_size, kfolds, seed,
                   n_blocks=n_blocks, n_qubits=n_qubits, n_layers=n_layers,
                   )
         results.append(R)
-        for j in range(kfolds):
-            plt.plot(np.arange(0,151,10),R[j]["val_acc"])
-            plt.plot(np.arange(0,151),R[j]["training_acc"])
+        # for j in range(kfolds):
+        #     plt.plot(np.arange(0,151,10),R[j]["val_acc"])
+        #     plt.plot(np.arange(0,151),R[j]["training_acc"])
             #plt.ylim(0.6,1)
             #plt.ylabel("Validation Accuracy")
-            plt.show()
+            # plt.show()
         # for j in range(kfolds):
         #     plt.plot(R[j]["training_acc"])
         # plt.ylabel("Training Accuracy")
         # plt.show()
         for j in range(kfolds):
             plt.plot(R[j]["training_loss"])
+        #plt.ylim(0,0.004)
         plt.ylabel("Training Loss")
         #plt.xlabel("Epoch")
         plt.show()
-        #print([x["val_acc"][-1] for x in R])
-        print(np.mean([x["val_acc"][-1] for x in R]))
-        print(np.std([x["val_acc"][-1] for x in R]))
-        print(np.mean([x["training_acc"][-1] for x in R]))
+        print([x["training_loss"][-1] for x in R])
+        print(np.mean([x["training_loss"][-1] for x in R]))
+        print(np.std([x["training_loss"][-1] for x in R]))
+        print(np.mean([x["val_loss"][-1] for x in R]))
+        print(np.std([x["val_loss"][-1] for x in R]))
+
+        # print(np.mean([x["val_acc"][-1] for x in R]))
+        # print(np.std([x["val_acc"][-1] for x in R]))
+        # print(np.mean([x["training_acc"][-1] for x in R]))
     end = time.time()
     print(end-start)
 

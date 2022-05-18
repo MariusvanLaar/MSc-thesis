@@ -18,6 +18,7 @@ import datasets, models
 import pickle
 from sklearn.model_selection import KFold
 import glob, os
+from types import SimpleNamespace
 
 
 def train(args):
@@ -31,7 +32,7 @@ def train(args):
     kf = KFold(args.kfolds, shuffle=True, random_state=args.seed)
     for fold, (train_idx, test_idx) in enumerate(kf.split(dataclass.data)):
         save_name = f"{args.tag}-{fold}-{args.dataset}-{args.optimizer}-{args.learning_rate}-" \
-        f"{args.model}-{args.n_layers}-{args.n_blocks}-{args.n_qubits}-{args.seed}-*"
+        f"{args.model}-{args.n_layers}-{args.n_blocks}-{args.n_qubits}-{args.observable}-{args.seed}-*"
         if len(glob.glob("runs"+os.sep+save_name)) == 0: #Check if this iteration has been done before
             X_tr, Y_tr = dataclass[train_idx]
             X_te, Y_te = dataclass[test_idx]
@@ -42,16 +43,15 @@ def train(args):
                     
             train_set = FoldFactory(X_tr, Y_tr)
             test_set = FoldFactory(X_te, Y_te)
-                    
-            train_(train_set, test_set, fold, {**args, **dataclass.data_info})
-        
+
+            train_(train_set, test_set, fold, SimpleNamespace(**vars(args), **dataclass.data_info))
+
 
 def train_(train_set, test_set, fold_id, args):
     start = time.time()
-        
     save_name = (
         f"{args.tag}-{fold_id}-{args.dataset}-{args.optimizer}-{args.learning_rate}-" 
-        + f"{args.model}-{args.n_layers}-{args.n_blocks}-{args.n_qubits}-{args.seed}-"
+        + f"{args.model}-{args.n_layers}-{args.n_blocks}-{args.n_qubits}-{args.observable}-{args.seed}-"
         + time.strftime("%m-%d--%H-%M")
     )
     
@@ -79,7 +79,6 @@ def train_(train_set, test_set, fold_id, args):
             n_qubits=args.n_qubits,
             n_layers=args.n_layers,
             observable=args.observable,
-            return_prob=args.return_prob,
             weights_spread=args.initial_weights_spread,
             )
     elif args.model[:3] == "ANN":
@@ -139,6 +138,7 @@ def train_(train_set, test_set, fold_id, args):
                 with open("fails/"+save_name+".fail", "a") as f:
                     print(args, file=f)                
                 loss = criterion(pred, y)
+
             #Backpropagation
             if loss.requires_grad:
                 loss.backward()
@@ -299,14 +299,8 @@ if __name__ == "__main__":
     parser_train.add_argument(
         "--observable",
         metavar="OB",
-        default="All",
-        help="type of observable",
-    )
-    parser_train.add_argument(
-        "--return-prob",
-        metavar="P",
-        default=False,
-        help="Boolean of whether to map the model output to the range [0,1]",
+        default="Final",
+        help="Specifies the observable, can be either 'All', 'Final' or a list of the form [block idx, qubit idx] for a single qubit observable",
     )
     parser_train.add_argument(
         "--learning-rate",

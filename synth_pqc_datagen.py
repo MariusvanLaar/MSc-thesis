@@ -28,7 +28,7 @@ model_name = "PQC-4A"
 n_qubits = 5
 n_blocks = 2
 n_layers = 2
-obs = "Final"
+obs = "All"
 num_datapoints = 1000
 
 counter = 0
@@ -44,6 +44,7 @@ for j in range(1000):
     
 threshold = np.std(outputs)*1.001
 print(threshold)
+print(np.std(outputs)**2)
 
 outputs = []
 while len(X) < num_datapoints:
@@ -75,12 +76,12 @@ while len(X) < num_datapoints:
 print(np.std(outputs)**2)
 
 
-fname=f"datasets/data_files/{model_name}_{n_layers}_{n_blocks*n_qubits}_{obs}"
-synth_data = {"data": np.array(X), "labels": np.array(Y), "gen_seed": seed, 
-              "std": threshold}
-pickling_on = open(fname+".pkl","wb")
-pickle.dump(synth_data, pickling_on)
-pickling_on.close()
+# fname=f"datasets/data_files/{model_name}_{n_layers}_{n_blocks*n_qubits}_{obs}"
+# synth_data = {"data": np.array(X), "labels": np.array(Y), "gen_seed": seed, 
+#               "std": threshold}
+# pickling_on = open(fname+".pkl","wb")
+# pickle.dump(synth_data, pickling_on)
+# pickling_on.close()
 
 # import matplotlib.pyplot as plt
 # Xp = [x for x, y in zip(X,Y) if y==1]

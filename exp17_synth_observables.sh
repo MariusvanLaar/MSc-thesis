@@ -2,25 +2,26 @@
 # PQC output dataset, test for best observable (all or final qubit)
 
 
-models=("PQC-4A" "PQC-4AA")
-datasets=("synth-4A" "synth-4AA")
+observables=("Final" "All" "0,0")
+datasets=("synth-4F" "synth-4A")
 
+for O in "${observables[@]}"; do
 for D in "${datasets[@]}"; do
-for M in "${models[@]}"; do
 
-	echo "Running model $M with $D"
+	echo "Running observable $O with dataset $D"
 	
-	python main_v4.py \
+	python main_v5.py \
 	--tag "Exp17" \
-	--seed 1234 \
+	--seed 1235 \
 	--epochs 150 \
 	--kfolds 10 \
 	train \
 	--optimizer "adam" \
-	--model $M \
+	--model "PQC-4A" \
 	--dataset $D \
-	--n-layers 4 \
-	--n-blocks 2	
+	--n-layers 2 \
+	--n-blocks 2 \
+	--observable $O
 	
 	sleep 5
 	

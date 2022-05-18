@@ -10,12 +10,12 @@ import torch.nn as nn
 import numpy as np
 import math
 from .layers import Rx_layer, Ry_layer, Rz_layer, Hadamard_layer, CNOT_layer, Entangle_layer, krons
-
+import ast
 
 
 class BaseModel(nn.Module):
     def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2],
-                 observable="All"):
+                 observable="Final"):
         super().__init__()   
         
         self.n_blocks = n_blocks
@@ -23,11 +23,12 @@ class BaseModel(nn.Module):
         self.weights_spread = weights_spread
         self.block_obs = None
         self.observables = {"All": self.all_qubit_Z, "Final": self.single_qubit_Z}
-        assert type(observable) in [str, list], "Invalid observable given"
-        if type(observable) == str:
+        assert type(observable) == str, "Invalid observable given"
+        if observable in self.observables:
             self.observables[observable]()
-        elif type(observable) == list: #list of [block idx, qubit idx] 
-            self.single_qubit_Z(observable)
+        else: #list of [block idx, qubit idx] 
+            assert len(ast.literal_eval(observable)) <= 2, "Invalid single qubit observable observable given"
+            self.single_qubit_Z(ast.literal_eval(observable))
         
         
     def cnot_(self, offset, leap):
@@ -124,7 +125,7 @@ class BaseModel(nn.Module):
         return O.real.float()
     
     
-    def return_probability(output):
+    def return_probability(self, output):
         return torch.clamp(0.5*(output+1), min=0, max=1)
         #Clamp is necessary for over or underflow errors leading to values just above 1 or below 0 (on the scale 0f e-08)
         #Can be a source of bugs though, especially when introducing new features "upstream" the clamp should be disabled.

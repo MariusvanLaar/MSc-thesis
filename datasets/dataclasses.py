@@ -107,9 +107,9 @@ class MNIST(DataFactory):
         X = self.scaler.transform(X) 
         return X
     
-class synth_dataset(DataFactory):
-    def __init__(self, model, n_features, layers):
-        self.fname = f"{model}_{layers}_{n_features}"
+class synth_pqc_dataset_(DataFactory):
+    def __init__(self, model, n_features, layers, obs):
+        self.fname = f"{model}_{layers}_{n_features}_{obs}"
         super().__init__(self.fname, False, n_features)
         self.data_info["loss"] = "MSE"
         self.data_info["return_probs"] = False
@@ -119,13 +119,29 @@ class synth_dataset(DataFactory):
     def transform(self, X):
         return X
 
-class SYNTH_4A(synth_dataset):
+class SYNTH_4F(synth_pqc_dataset_):
     def __init__(self, n_features):
-        super().__init__("PQC4A", n_features, 4)
+        super().__init__("PQC-4A", n_features, 2, "Final")
         
-class SYNTH_4AA(synth_dataset):
+class SYNTH_4A(synth_pqc_dataset_):
     def __init__(self, n_features):
-        super().__init__("PQC4AA", n_features, 4)
+        super().__init__("PQC-4A", n_features, 2, "All")
+        
+class ising_dataset_(DataFactory):
+    def __init__(self, n_features, n_spins, obs):
+        self.fname = f"TIsing_{n_spins}_{obs}"
+        super().__init__(self.fname, False, n_features)
+        self.data_info["loss"] = "MSE"
+        self.data_info["return_probs"] = False
+        
+    def fit(self, X):
+        pass
+    def transform(self, X):
+        return X
+    
+class ISING_10(ising_dataset_):
+    def __init__(self, n_features):
+        super().__init__(n_features, 10, 0)
  
         
 class SIMPLE(Dataset):

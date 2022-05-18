@@ -12,7 +12,7 @@ for M in "${models[@]}"; do
 
 	echo "Running model $M with $L $D"
 	
-	python main_v4.py \
+	python main_v5.py \
 	--tag "Exp15-"$seed \
 	--seed $seed \
 	--epochs 150 \

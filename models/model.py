@@ -343,7 +343,7 @@ class PQC_4A(BaseModel):
     def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], **kwargs):
         super().__init__(n_blocks, n_qubits, weights_spread, **kwargs)  
         self.n_layers = n_layers
-        self.var = nn.Sequential(*[self.YfRot() for _ in range(n_layers)])
+        self.var = nn.Sequential(*[self.ZYfRot() for _ in range(n_layers)])
         self.dru = nn.Sequential(*[self.XfRot(weights_spread=[1,1]) for _ in range(n_layers)])
         self.cnot = nn.Sequential(*[self.cnot_(0,1) for offset in range(n_layers)])
         self.fvar = self.AfRot()
@@ -491,8 +491,8 @@ class NeuralNetwork(nn.Module):
         self.input_dim = input_dim
         self.dropout = nn.Dropout(0.25)
         self.layer1 = nn.Linear(input_dim, 50)
-        self.layer2 = nn.Linear(50, 100)
-        self.layer3 = nn.Linear(100, 50)
+        self.layer2 = nn.Linear(50, 20)
+        self.layer3 = nn.Linear(20, 50)
         self.layer4 = nn.Linear(50, 1)
 
     def forward(self, x):
@@ -504,7 +504,7 @@ class NeuralNetwork(nn.Module):
         out = self.dropout(out)
         out = nn.ReLU()(self.layer3(out))
         out = self.dropout(out)
-        out = nn.Sigmoid()(self.layer4(out))
+        out = nn.Tanh()(self.layer4(out))
         return out
     
 
