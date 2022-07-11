@@ -1,8 +1,8 @@
 #!/bin/sh
-# Ionosphere dataset tested with various ansatze 4A for additional gradient data
+# Ionosphere dataset tested with various ansatze for additional gradient data
 
 
-models=("PQC-4A")
+models=("PQC-4A" "PQC-4C")
 seed=25
 
 for B in $(seq 2 6); do

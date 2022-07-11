@@ -347,7 +347,10 @@ class PQC_4A(BaseModel):
         self.dru = nn.Sequential(*[self.XfRot(weights_spread=[1,1]) for _ in range(n_layers)])
         self.cnot = nn.Sequential(*[self.cnot_(0,1) for offset in range(n_layers)])
         self.fvar = self.AfRot()
-        self.Entangle = Entangle_layer([[[i,-1],[(i+1)%n_blocks,0]] for i in range(n_blocks)], self.n_qubits) #Entanglement between blocks
+        if n_blocks > 1:
+            self.Entangle = Entangle_layer([[[i,-1],[(i+1)%n_blocks,0]] for i in range(n_blocks)], self.n_qubits) #Entanglement between blocks
+        else:
+            self.Entangle = nn.Sequential(*[Entangle_layer([], self.n_qubits) for i in range(self.n_layers)]) #No Entanglement in blocks
         
     def decide_ent(self, layer):
         return layer + 1 == self.n_layers//2
@@ -392,12 +395,14 @@ class PQC_4D(PQC_4B):
     def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], **kwargs):
         super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs)
 
-class PQC_4E(PQC_4C):
+class PQC_4E(PQC_4B):
     def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], **kwargs):
         super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs)
+        if n_qubits == 1:
+            self.cnot = nn.Sequential(*[Entangle_layer([], self.n_qubits) for i in range(self.n_layers)]) #No Entanglement in blocks
         
 class PQC_4Z(PQC_4C):
-    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,0], **kwargs):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], **kwargs):
         super().__init__(n_blocks, n_qubits, n_layers, weights_spread, **kwargs)
         self.Entangle = Entangle_layer([], self.n_qubits) #No Entanglement between blocks
         if n_qubits == 1:
@@ -441,26 +446,31 @@ class PQC_4T(PQC_4S):
         return False
         
         
-class PQC_5A(BaseModel):
-    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2], **kwargs):
-        """ A model where the number of CNOTs is varied and the number of layers is fixed, the CNOTs are randomly placed"""
-        super().__init__(n_blocks, n_qubits, weights_spread, **kwargs ) 
+class PQC_5_(BaseModel):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int = 5, weights_spread: list = [-np.pi/2,np.pi/2],
+                 n_layers_: int = 1, **kwargs):
+        """ A model where the number of CNOTs is varied and the number of layers is fixed, the CNOTs are randomly placed.
+            The n_layers input is the number of cut CNOTs, whilst n_layers_ fixes the number of layers in the model"""
+        super().__init__(n_blocks, n_qubits, weights_spread, **kwargs) 
         self.n_cuts = n_layers
-        self.n_layers = 4
+        self.n_layers = n_layers_
         self.var = nn.Sequential(*[self.ZYfRot() for _ in range(self.n_layers)])
         self.dru = nn.Sequential(*[self.XfRot(weights_spread=[1,1]) for _ in range(self.n_layers)])
         self.cnot = nn.Sequential(*[self.cnot_(0,1) for offset in range(self.n_layers)])
         self.fvar = self.AfRot()
         self.gen_coords = self.gen_rand_CNOT_coords()
-        self.Entangle = nn.Sequential(*[Entangle_layer(self.gen_coords[i], self.n_qubits) for i in range(self.n_layers)])
+        self.Entangle = nn.Sequential(*[Entangle_layer(self.gen_coords[i], self.n_qubits) for i in range(self.n_layers-1)])
         
     def gen_rand_CNOT_coords(self):
-        layer_list = [[] for _ in range(self.n_layers)]
-        for j in range(self.n_cuts):
-            l_idx = np.random.randint(0, self.n_layers)
+        layer_list = [[] for _ in range(self.n_layers-1)]
+        j = 0
+        while j < self.n_cuts:
+            l_idx = np.random.randint(0, self.n_layers-1)
             bx1, bx2 = np.random.choice(self.n_blocks, size=(2), replace=False)
             qx1, qx2 = np.random.randint(0, self.n_qubits, size=(2))
-            layer_list[l_idx].append([[bx1, qx1], [bx2, qx2]])
+            if [[bx1, qx1], [bx2, qx2]] not in layer_list[l_idx]:
+                layer_list[l_idx].append([[bx1, qx1], [bx2, qx2]])
+                j += 1
         return layer_list 
     
     def forward(self, x):
@@ -474,26 +484,32 @@ class PQC_5A(BaseModel):
             state = self.dru[l][0](state, data=x)
             state = self.var[l](state)
             state = self.cnot[l](state)
-            state = self.Entangle[l](state)
+            if l < self.n_layers-1:
+                state = self.Entangle[l](state)
             
         state = self.fvar(state)
-        
         return self.exp_val(state)
     
-class PQC_5B(PQC_5A):
-    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int):
-        super().__init__(n_blocks, n_qubits, n_layers)        
+class PQC_52(PQC_5_):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int, **kwargs):
+        super().__init__(n_blocks, n_qubits, n_layers, n_layers_= 2, **kwargs)
+
+class PQC_54(PQC_5_):
+    def __init__(self, n_blocks: int, n_qubits: int, n_layers: int, **kwargs):
+        super().__init__(n_blocks, n_qubits, n_layers, n_layers_= 4, **kwargs)  
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, input_dim):
+    def __init__(self, input_dim, **kwargs):
         super(NeuralNetwork, self).__init__()
         self.flatten = nn.Flatten()
         self.input_dim = input_dim
         self.dropout = nn.Dropout(0.25)
-        self.layer1 = nn.Linear(input_dim, 50)
-        self.layer2 = nn.Linear(50, 20)
-        self.layer3 = nn.Linear(20, 50)
-        self.layer4 = nn.Linear(50, 1)
+        self.layer1 = nn.Linear(input_dim, 250)
+        self.layer2 = nn.Linear(250, 250)
+        self.layer3 = nn.Linear(250, 1)
+        
+    def return_probability(self, output):
+        return torch.clamp(0.5*(output+1), min=0, max=1)
 
     def forward(self, x):
         if x.shape[1] >= self.input_dim:
@@ -502,9 +518,7 @@ class NeuralNetwork(nn.Module):
         out = nn.ReLU()(self.layer1(x))
         out = nn.ReLU()(self.layer2(out))
         out = self.dropout(out)
-        out = nn.ReLU()(self.layer3(out))
-        out = self.dropout(out)
-        out = nn.Tanh()(self.layer4(out))
+        out = nn.Tanh()(self.layer3(out))
         return out
     
 

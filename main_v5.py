@@ -13,12 +13,15 @@ from torch.utils.data import DataLoader
 from numpy import pi
 import numpy as np
 import time
-from optimizers import SPSA, CMA
 import datasets, models
 import pickle
 from sklearn.model_selection import KFold
 import glob, os
 from types import SimpleNamespace
+
+### Todo:
+# - Permute data order per fold, not run
+# - 
 
 
 def train(args):
@@ -31,8 +34,8 @@ def train(args):
     assert "loss" in dataclass.data_info, "Dataclass has no assigned loss function"
     kf = KFold(args.kfolds, shuffle=True, random_state=args.seed)
     for fold, (train_idx, test_idx) in enumerate(kf.split(dataclass.data)):
-        save_name = f"{args.tag}-{fold}-{args.dataset}-{args.optimizer}-{args.learning_rate}-" \
-        f"{args.model}-{args.n_layers}-{args.n_blocks}-{args.n_qubits}-{args.observable}-{args.seed}-*"
+        save_name = (f"{args.tag}-{fold}-{args.dataset}-{args.optimizer}-{args.learning_rate}-"
+        + f"{args.model}-{args.n_layers}-{args.n_blocks}-{args.n_qubits}-{args.observable}-{args.seed}-*")
         if len(glob.glob("runs"+os.sep+save_name)) == 0: #Check if this iteration has been done before
             X_tr, Y_tr = dataclass[train_idx]
             X_te, Y_te = dataclass[test_idx]
@@ -85,6 +88,9 @@ def train_(train_set, test_set, fold_id, args):
         model = models.model_set[args.model](
             input_dim=args.n_blocks*args.n_qubits,
             )
+        
+    if "obs_multiplier" in vars(args).keys():
+        model.Observable *= args.obs_multiplier
             
     #Create optimizer
     if args.optimizer == "adam":
@@ -93,6 +99,7 @@ def train_(train_set, test_set, fold_id, args):
             lr=args.learning_rate,
             )
     elif args.optimizer == "spsa":
+        from optimizers import SPSA
         optimizer = SPSA(
             model.parameters(),
             lr=args.learning_rate,
@@ -104,9 +111,15 @@ def train_(train_set, test_set, fold_id, args):
             history_size=25,
             )
     elif args.optimizer == "cma":
+        from optimizers import CMA
         optimizer = CMA(
             model.parameters(),
             lr=args.learning_rate,
+            )
+    elif args.optimizer == "cwd":
+        from optimizers import CWD
+        optimizer = CWD(
+            model.parameters(),
             )
     
     losses = np.zeros((args.epochs+1))
@@ -147,9 +160,12 @@ def train_(train_set, test_set, fold_id, args):
             return loss
 
         optimizer.step(loss_closure)
+        try:
+            gradient_1[epoch] = model.var[0][0].weights.grad.flatten()[-1].item() #Gradient first Yrot of final qubit in final block
+            gradient_2[epoch] = model.fvar[1].weights.grad.flatten()[0].item() #Gradient last Yrot of first qubit in first block
+        except:
+            pass
         
-        gradient_1[epoch] = model.var[0][0].weights.grad.flatten()[-1].item() #Gradient first Yrot of final qubit in final block
-        gradient_2[epoch] = model.fvar[1].weights.grad.flatten()[-1].item() #Gradient last Yrot of final qubit in final block
         losses[epoch] = loss.item()
         t_accs[epoch] = training_acc
         
@@ -202,6 +218,7 @@ def train_(train_set, test_set, fold_id, args):
                "validation_accuracy": v_accs,
                "args": args, "timer": end-start,
                "gradient1": gradient_1, "gradient2": gradient_2,
+               "CNOT_placement": model.Entangle,
                }
     pickling = open("runs/"+save_name+".pkl", "wb")
     pickle.dump(results, pickling)
@@ -299,8 +316,8 @@ if __name__ == "__main__":
     parser_train.add_argument(
         "--observable",
         metavar="OB",
-        default="Final",
-        help="Specifies the observable, can be either 'All', 'Final' or a list of the form [block idx, qubit idx] for a single qubit observable",
+        default="First",
+        help="Specifies the observable, can be either 'All', 'Final', 'First', or a list of the form [block idx, qubit idx] for a single qubit observable",
     )
     parser_train.add_argument(
         "--learning-rate",

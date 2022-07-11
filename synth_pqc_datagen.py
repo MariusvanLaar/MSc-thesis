@@ -28,7 +28,7 @@ model_name = "PQC-4A"
 n_qubits = 5
 n_blocks = 2
 n_layers = 2
-obs = "All"
+obs = "First"
 num_datapoints = 1000
 
 counter = 0
@@ -44,7 +44,7 @@ for j in range(1000):
     
 threshold = np.std(outputs)*1.001
 print(threshold)
-print(np.std(outputs)**2)
+print(np.std(outputs))
 
 outputs = []
 while len(X) < num_datapoints:

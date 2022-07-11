@@ -15,7 +15,7 @@ import ast
 
 class BaseModel(nn.Module):
     def __init__(self, n_blocks: int, n_qubits: int, weights_spread: list = [-np.pi/2,np.pi/2],
-                 observable="Final"):
+                 observable="First", **kwargs):
         super().__init__()   
         
         self.n_blocks = n_blocks
@@ -26,6 +26,11 @@ class BaseModel(nn.Module):
         assert type(observable) == str, "Invalid observable given"
         if observable in self.observables:
             self.observables[observable]()
+        elif observable == "First":
+            self.single_qubit_Z([0])
+        elif observable == "zero":
+            self.single_qubit_0([0])
+            
         else: #list of [block idx, qubit idx] 
             assert len(ast.literal_eval(observable)) <= 2, "Invalid single qubit observable observable given"
             self.single_qubit_Z(ast.literal_eval(observable))
@@ -76,7 +81,7 @@ class BaseModel(nn.Module):
     def forward(self, x):
         raise NotImplementedError("Forward method not implemented")
         
-    def single_qubit_Z(self, idxs=[-1]):
+    def single_qubit_(self, obs, idxs=[-1]):
         """idxs is a list of [block index, qubit index] to be the target single qubit observable.
             If the block index is omitted, the observable is Z on the qubit index in each
             block (which is strictly not a single qubit observable but we make do)."""
@@ -84,15 +89,15 @@ class BaseModel(nn.Module):
         #This section initializes a Pauli Z observable on the idx qubit of each block
         idx = idxs[-1]
         if idx == 0:
-            self.Observable = torch.kron(torch.Tensor([1,-1]), torch.ones(2**(self.n_qubits-1))).view(-1,1)
+            self.Observable = torch.kron(obs, torch.ones(2**(self.n_qubits-1))).view(-1,1)
         elif idx > 0 and idx < self.n_qubits-1:
             I1 = torch.ones(2**idx)
             I2 = torch.ones(2**(self.n_qubits-1-idx))
             self.Observable = torch.kron(I1,
-                                         torch.kron(torch.Tensor([1,-1]),
+                                         torch.kron(obs,
                                                     I2)).view(-1,1)
         elif idx == self.n_qubits-1 or idx == -1:
-            self.Observable = torch.kron(torch.ones(2**(self.n_qubits-1)), torch.Tensor([1,-1])).view(-1,1)
+            self.Observable = torch.kron(torch.ones(2**(self.n_qubits-1)), obs).view(-1,1)
         #This section customizes the above observable to act on a specific block
         if len(idxs) == 2:
             assert idxs[0] < self.n_blocks, "Invalid qubit idx given"
@@ -100,6 +105,12 @@ class BaseModel(nn.Module):
             nidx = [i for i in range(self.n_blocks) if i !=idxs[0]]
             I = torch.ones((self.n_blocks-1, 1, 2**self.n_qubits, 1))
             self.Observable[nidx] = I
+            
+    def single_qubit_Z(self, idxs):
+        self.single_qubit_(torch.Tensor([1,-1]), idxs)
+
+    def single_qubit_0(self, idxs):
+        self.single_qubit_(torch.Tensor([1,0]), idxs)
                 
     def all_qubit_Z(self):
         """Quick function to revert an observable to all-Pauli-Z"""

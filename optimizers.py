@@ -6,11 +6,12 @@ Created on Mon Feb 28 17:22:37 2022
 """
 
 import torch
-import torch.optim as opt
 import numpy as np
 from torch.optim import Optimizer
 from numpy import pi
-import cma
+
+import torch.nn as nn
+
 
 
 class SPSA(Optimizer):
@@ -18,7 +19,7 @@ class SPSA(Optimizer):
     
     def __init__(self, params, lr=1):
         
-        defaults = dict(lr=lr, a=1e4, alpha=0.99, gamma=0.99, epoch=0)
+        defaults = dict(lr=lr, a=10, A=10,  alpha=0.612, gamma=1/6, epoch=0)
         
         super().__init__(params, defaults)
         
@@ -33,34 +34,29 @@ class SPSA(Optimizer):
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
-        def clip(x, bounds=[-0.1, 0.1]):
+        def clip(x, bounds=[-0.2, 0.2]):
             return torch.clamp(x, min=bounds[0], max=bounds[1])
         
         loss = None
         for group in self.param_groups:
 
-            lr = group['lr']
-            gamma = group['gamma']
-            a = group['a']
-            alpha = group['alpha']
+            lr = group['lr'] / (group['epoch'] + 1)**group['gamma']
+            a = group['a'] / (group['A'] + group["epoch"] + 1)**group['alpha']
 
-            for p in group['params']:
-                
-                pertb_vector = 2*torch.randint_like(p, low=0, high=2) - 1
-                p.add_(lr*pertb_vector)
-                l1 = closure()
-                p.add_(-2*lr*pertb_vector)
-                l2 = closure()
-                g = (l1-l2) / 2*lr*pertb_vector
-                # if l1 <= l2:
-                #     g = -lr*pertb_vector
-                # else:
-                #     g = lr*pertb_vector
-                
-                p.add_(lr*pertb_vector - clip(a*g))
-                    
-            group['a'] = a*alpha
-            group['lr'] = lr*gamma
+            p = nn.utils.parameters_to_vector(group["params"])
+            pertb_vector = torch.randint_like(p, high=1)*2 - 1
+            
+            p.add_(lr*pertb_vector)
+            nn.utils.vector_to_parameters(p, group["params"])
+            l1 = closure()
+            p.add_(-2*lr*pertb_vector)
+            nn.utils.vector_to_parameters(p, group["params"])
+            l2 = closure()
+            g = (l1-l2) / 2*lr*pertb_vector
+            
+            p.add_(lr*pertb_vector - clip(a*g))
+            nn.utils.vector_to_parameters(p, group["params"])
+            
             group['epoch'] += 1
 
             state = self.state[p]
@@ -71,7 +67,7 @@ class CMA(Optimizer):
     """Implements the CMA optimizer"""
     
     def __init__(self, params, lr=1, popsize=40, s0=pi/6, mu=0.2):
-    
+        import cma
         defaults = dict(bounds=[-pi, pi], popsize=popsize, CMA_cmean=lr, CMA_mu=int(popsize*mu))
         
         super().__init__(params, defaults)
@@ -111,4 +107,57 @@ class CMA(Optimizer):
         self.set_params_(self.cma_opt.best.x)
         #Return mean loss of all candidates
         loss = np.mean(losses)
+        
+class CWD(Optimizer):
+    """Implements coordinate wise descent"""
+    
+    def __init__(self, params, **kwargs):
+        
+        defaults = {}
+        self.steps = 30
+        super().__init__(params, defaults)
+        self.dru_prange = torch.linspace(0, 2, steps=self.steps)
+        self.var_prange = torch.linspace(-np.pi, np.pi, steps=self.steps)
+        
+        for group in self.param_groups:
+            P = nn.utils.parameters_to_vector(group["params"])
+            self.mask = (P==1)
+    
+    def __setstate__(self, state):
+        super(CWD, self).__setstate(state)
+    
+    @torch.no_grad()
+    def step(self, closure=None):
+        """Performs a single optimization step.
+
+        Args:
+            closure (callable): A closure that reevaluates the model
+                and returns the loss.
+        """
+        
+        for group in self.param_groups:
+            P = nn.utils.parameters_to_vector(group["params"])
+            for j in range(len(P)):
+                if not self.mask[j]:
+                    p_range = self.var_prange 
+                else:
+                    p_range = self.dru_prange
+                    
+                losses = []
+                    
+                for p_val in p_range:
+                    P[j] = p_val
+                    nn.utils.vector_to_parameters(P, group["params"])
+                    
+                    losses.append(closure())
+                    
+                best_idx = torch.argmin(torch.Tensor(losses))
+                P[j] = p_range[best_idx]
+
+        loss = torch.min(torch.Tensor(losses))
+
+        
+        
+        
+        
                 

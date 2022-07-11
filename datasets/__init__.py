@@ -12,9 +12,12 @@ all_datasets = {
     "wdbc": WDBC,
     "synth-4A": SYNTH_4A,
     "synth-4F": SYNTH_4F,
+    "synth-4F-rand": SYNTH_4F_random,
     "ion": ION, 
     "sonar": SONAR,
     "spectf": SPECTF,
-    "mnist": MNIST,
+    "mnist-13": MNIST_13,
+    "mnist-23": MNIST_23,
     "ising-10": ISING_10,
+    "circle": CIRCLE,
     }
