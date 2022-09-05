@@ -1,6 +1,7 @@
 .ipynb_checkpoints/
 .vscode/
 *__pycache__*
+exp*.sh*
 CIFAR-15-test.pkl
 CIFAR-15-train.pkl
 MG_simulator.py
@@ -18,4 +19,3 @@ exp3/
 exp4/
 exp5/
 datasets/cifar-10-batches-py/
-*.sh*
