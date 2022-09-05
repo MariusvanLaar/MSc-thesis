@@ -7,6 +7,7 @@ CIFAR-15-train.pkl
 MG_simulator.py
 *.png*
 *.qpic*
+*.pkl*
 SQRE_circuit.py
 playground.py
 qpic.py
