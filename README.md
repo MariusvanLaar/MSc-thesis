@@ -1,7 +1,7 @@
 # MSc-thesis
 Repo for my MSc Thesis on the learning performance and computational hardness of Variational Quantum Circuits.
 
-The main_v*.py scripts contain the overall ML pipeline used to conduct the experiments. main.py can be used for local testing, the later versions are for batch experiments only. 
+The main_v5.py script contain the overall ML pipeline used to conduct the experiments. main.py is an equivalent scripts that can be used for local testing. 
 
 The datasets folder contains all data related items including the raw data files, preprocessing scripts, post-processed data files (in datsets/data_files, not visible). datafactory.py is the core dataloader class used for data loading in PyTorch, and dataclasses.py contain the dataset specific classes.
 
