@@ -20,3 +20,11 @@ exp3/
 exp4/
 exp5/
 datasets/cifar-10-batches-py/
+datasets/analysis/
+first.sh
+bash
+sh
+test_per_feature.py
+dataset_analysis.py
+final_exp_analysis.py
+pca_analysis.py
